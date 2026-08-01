@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { API_URL, authHeaders } from "../lib/api";
+import NavAdmin from "../components/NavAdmin";
 
 // Tela administrativa — só o Administrador Master enxerga essa opção
 // no menu. Lista os logins existentes e permite criar novos,
@@ -102,7 +103,9 @@ export default function GestaoUsuarios() {
   };
 
   return (
-    <div style={{ background: "#141414", minHeight: "100vh", padding: "2rem 1.5rem", color: "#fff" }}>
+    <div style={{ background: "#141414", minHeight: "100vh", color: "#fff" }}>
+      <NavAdmin />
+      <div style={{ padding: "2rem 1.5rem" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div>
@@ -230,6 +233,7 @@ export default function GestaoUsuarios() {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

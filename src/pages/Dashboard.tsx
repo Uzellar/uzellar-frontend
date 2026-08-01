@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
-import logoUlrik from "../assets/ulrik-logo.png";
 import { API_URL, authHeaders } from "../lib/api";
+import NavAdmin from "../components/NavAdmin";
 
 // Painel principal do administrador — primeira tela que aparece ao
 // logar. Números e gráficos vêm de GET /api/dashboard?condominioId=...
@@ -59,16 +59,24 @@ export default function Dashboard() {
 
   if (condominiosCarregados && condominios.length === 0) {
     return (
-      <div style={{ background: "#141414", minHeight: "100vh", padding: "2rem", color: "#8a8a8a", fontSize: 13 }}>
-        Nenhum condomínio cadastrado ainda.
+      <div style={{ background: "#141414", minHeight: "100vh" }}>
+        <NavAdmin />
+        <div style={{ padding: "2rem", color: "#8a8a8a", fontSize: 13 }}>
+          Nenhum condomínio cadastrado ainda.{" "}
+          <a href="#/condominios" style={{ color: "#EE312D" }}>
+            Cadastrar o primeiro
+          </a>
+          .
+        </div>
       </div>
     );
   }
 
   if (!dados) {
     return (
-      <div style={{ background: "#141414", minHeight: "100vh", padding: "2rem", color: "#8a8a8a", fontSize: 13 }}>
-        Carregando indicadores...
+      <div style={{ background: "#141414", minHeight: "100vh" }}>
+        <NavAdmin />
+        <div style={{ padding: "2rem", color: "#8a8a8a", fontSize: 13 }}>Carregando indicadores...</div>
       </div>
     );
   }
@@ -77,30 +85,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ background: "#141414", minHeight: "100vh" }}>
-      {/* Cabeçalho com a marca — mesmo padrão usado nas outras telas do sistema */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "1rem 1.5rem",
-          borderBottom: "0.5px solid #262626",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#1c1c1c", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="12" height="16" viewBox="0 0 18 24">
-              <polygon points="0,0 9,12 0,24 5,24 14,12 5,0" fill="#EE312D" />
-              <rect x="13" y="0" width="5" height="24" fill="#EE312D" />
-            </svg>
-          </div>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 500, color: "#fff", margin: 0, lineHeight: 1.1 }}>Uzellar</p>
-            <p style={{ fontSize: 10, color: "#666", margin: 0, lineHeight: 1.1 }}>by Ulrik</p>
-          </div>
-        </div>
-        <img src={logoUlrik} alt="Ulrik" style={{ height: 20, width: "auto" }} />
-      </header>
+      <NavAdmin />
 
       <div style={{ padding: "2rem 1.5rem" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
