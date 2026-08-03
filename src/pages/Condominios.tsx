@@ -114,6 +114,15 @@ export default function Condominios() {
     }
   };
 
+  const regenerarQrCode = async (localId: string) => {
+    if (!condominioSelecionado) return;
+    await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/locais/${localId}/qrcode/regenerar`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    await carregarLocais(condominioSelecionado);
+  };
+
   return (
     <div style={{ background: "#141414", minHeight: "100vh" }}>
       <NavAdmin />
@@ -248,10 +257,17 @@ export default function Condominios() {
                     </div>
                   )}
                   <p style={{ fontSize: 12, color: "#fff", margin: "0 0 6px", fontWeight: 500 }}>{l.nome}</p>
-                  {l.qrCodeUrl && (
+                  {l.qrCodeUrl ? (
                     <a href={l.qrCodeUrl} download={`qrcode-${l.nome}.png`} style={{ fontSize: 11, color: "#EE312D", textDecoration: "none" }}>
                       Baixar
                     </a>
+                  ) : (
+                    <button
+                      onClick={() => regenerarQrCode(l.id)}
+                      style={{ fontSize: 11, color: "#EE312D", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                    >
+                      Gerar QR Code
+                    </button>
                   )}
                 </div>
               ))}
