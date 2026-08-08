@@ -18,7 +18,7 @@ export default function App() {
     <HashRouter>
       <Routes>
         {/* Públicas — sem login, é o que o morador usa */}
-        <Route path="/atender/:localId" element={<SolicitacaoForm />} />
+        <Route path="/atender/:condominioId" element={<SolicitacaoForm />} />
         <Route path="/consulta" element={<ConsultaSolicitacao />} />
         <Route path="/consulta/:protocolo" element={<ConsultaSolicitacao />} />
 

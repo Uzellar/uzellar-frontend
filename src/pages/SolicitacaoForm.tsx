@@ -2,17 +2,23 @@ import { useRef, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { API_URL } from "../lib/api";
 
-// Tela aberta ao escanear o QR Code de um local. Sem login.
-// `localId` vem da rota (/atender/:localId) e o backend já resolve
-// condomínio + local a partir dele.
+// Tela aberta ao escanear o QR Code do CONDOMÍNIO (um só QR Code
+// serve para todos os ambientes). `condominioId` vem da rota
+// (/atender/:condominioId). O morador escolhe o ambiente (local) e se
+// identifica (nome, bloco, apartamento) diretamente no formulário.
 
 type TipoServico = "LIMPEZA" | "MANUTENCAO" | "PORTARIA" | "SEGURANCA";
 
-interface LocalInfo {
+interface LocalOpcao {
+  id: string;
+  nome: string;
+}
+
+interface CondominioInfo {
   condominioNome: string;
   condominioLogoUrl?: string;
-  localNome: string;
   servicosDisponiveis: TipoServico[];
+  locais: LocalOpcao[];
 }
 
 const LABELS: Record<TipoServico, string> = {
@@ -23,8 +29,13 @@ const LABELS: Record<TipoServico, string> = {
 };
 
 export default function SolicitacaoForm() {
-  const { localId } = useParams<{ localId: string }>();
-  const [info, setInfo] = useState<LocalInfo | null>(null);
+  const { condominioId } = useParams<{ condominioId: string }>();
+  const [info, setInfo] = useState<CondominioInfo | null>(null);
+
+  const [nomeMorador, setNomeMorador] = useState("");
+  const [bloco, setBloco] = useState("");
+  const [apartamento, setApartamento] = useState("");
+  const [localId, setLocalId] = useState<string>("");
   const [tipo, setTipo] = useState<TipoServico | null>(null);
   const [descricao, setDescricao] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
@@ -40,13 +51,13 @@ export default function SolicitacaoForm() {
   const assinaturaVazia = useRef(true);
 
   useEffect(() => {
-    // Busca os dados do local (nome do condomínio, logo, serviços ativos)
-    // para preencher o topo da tela automaticamente.
-    fetch(`${API_URL}/api/locais/${localId}/publico`)
+    // Busca os dados do condomínio (nome, logo, serviços ativos e a
+    // lista de ambientes) para preencher o formulário automaticamente.
+    fetch(`${API_URL}/api/condominios/${condominioId}/publico`)
       .then((r) => r.json())
       .then(setInfo)
-      .catch(() => setErro("Não foi possível carregar as informações deste local."));
-  }, [localId]);
+      .catch(() => setErro("Não foi possível carregar as informações deste condomínio."));
+  }, [condominioId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -103,22 +114,34 @@ export default function SolicitacaoForm() {
     setFotoPreview(arquivo ? URL.createObjectURL(arquivo) : null);
   };
 
-  const podeEnviar = tipo && descricao.trim().length > 0 && foto && !assinaturaVazia.current && !enviando;
+  const podeEnviar =
+    nomeMorador.trim().length > 0 &&
+    bloco.trim().length > 0 &&
+    apartamento.trim().length > 0 &&
+    localId &&
+    tipo &&
+    descricao.trim().length > 0 &&
+    !enviando;
 
   const enviar = async () => {
-    if (!podeEnviar || !canvasRef.current) return;
+    if (!podeEnviar) return;
     setEnviando(true);
     setErro(null);
 
     try {
-      // Upload da foto e da assinatura ficam a cargo do backend
-      // (endpoint aceita multipart e devolve as URLs finais).
+      // Foto e assinatura são opcionais — só entram no envio se o
+      // morador realmente preencheu.
       const formData = new FormData();
-      formData.append("localId", localId!);
+      formData.append("localId", localId);
       formData.append("tipo", tipo!);
       formData.append("descricao", descricao);
-      formData.append("foto", foto!);
-      formData.append("assinatura", canvasRef.current.toDataURL("image/png"));
+      formData.append("nomeMorador", nomeMorador);
+      formData.append("bloco", bloco);
+      formData.append("apartamento", apartamento);
+      if (foto) formData.append("foto", foto);
+      if (!assinaturaVazia.current && canvasRef.current) {
+        formData.append("assinatura", canvasRef.current.toDataURL("image/png"));
+      }
 
       // Heurística simples: se tem "@" é e-mail, senão trata como telefone.
       const contatoLimpo = contato.trim();
@@ -159,7 +182,7 @@ export default function SolicitacaoForm() {
               {protocolo}
             </p>
             <a
-              href={`/consulta/${protocolo}`}
+              href={`#/consulta/${protocolo}`}
               className="inline-block mt-3 text-sm text-neutral-900 underline underline-offset-2"
             >
               Consultar andamento agora
@@ -182,11 +205,61 @@ export default function SolicitacaoForm() {
           <p className="text-sm font-medium text-neutral-900 leading-tight">
             {info?.condominioNome ?? "Carregando..."}
           </p>
-          <p className="text-xs text-neutral-500 leading-tight">{info?.localNome}</p>
+          <p className="text-xs text-neutral-500 leading-tight">Registrar solicitação</p>
         </div>
       </header>
 
       <div className="px-5 py-5 space-y-6">
+        <section>
+          <label className="text-sm font-medium text-neutral-900 block mb-2">Seu nome</label>
+          <input
+            type="text"
+            value={nomeMorador}
+            onChange={(e) => setNomeMorador(e.target.value)}
+            placeholder="Nome completo"
+            className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
+          />
+        </section>
+
+        <section className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm font-medium text-neutral-900 block mb-2">Bloco</label>
+            <input
+              type="text"
+              value={bloco}
+              onChange={(e) => setBloco(e.target.value)}
+              placeholder="Ex: A"
+              className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-neutral-900 block mb-2">Apartamento</label>
+            <input
+              type="text"
+              value={apartamento}
+              onChange={(e) => setApartamento(e.target.value)}
+              placeholder="Ex: 302"
+              className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
+            />
+          </div>
+        </section>
+
+        <section>
+          <label className="text-sm font-medium text-neutral-900 block mb-2">Local que precisa de atenção</label>
+          <select
+            value={localId}
+            onChange={(e) => setLocalId(e.target.value)}
+            className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
+          >
+            <option value="">Selecione...</option>
+            {(info?.locais ?? []).map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.nome}
+              </option>
+            ))}
+          </select>
+        </section>
+
         <section>
           <label className="text-sm font-medium text-neutral-900 block mb-2">Tipo de solicitação</label>
           <div className="grid grid-cols-2 gap-2">
@@ -219,7 +292,9 @@ export default function SolicitacaoForm() {
         </section>
 
         <section>
-          <label className="text-sm font-medium text-neutral-900 block mb-2">Foto do problema</label>
+          <label className="text-sm font-medium text-neutral-900 block mb-2">
+            Foto do problema <span className="text-neutral-400 font-normal">(opcional)</span>
+          </label>
           {fotoPreview ? (
             <div className="relative">
               <img src={fotoPreview} alt="Prévia" className="w-full h-40 object-cover rounded-lg" />
@@ -244,7 +319,9 @@ export default function SolicitacaoForm() {
 
         <section>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-neutral-900">Assinatura</label>
+            <label className="text-sm font-medium text-neutral-900">
+              Assinatura <span className="text-neutral-400 font-normal">(opcional)</span>
+            </label>
             <button type="button" onClick={limparAssinatura} className="text-xs text-neutral-500">
               Limpar
             </button>

@@ -25,6 +25,7 @@ interface Usuario {
   id: string;
   nome: string;
   email: string;
+  telefone?: string;
   perfil: Perfil;
   ativo: boolean;
   condominios: { condominio: Condominio }[];
@@ -38,6 +39,7 @@ export default function GestaoUsuarios() {
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
   const [senha, setSenha] = useState("");
   const [perfil, setPerfil] = useState<Perfil>("VISUALIZADOR");
   const [condominioIds, setCondominioIds] = useState<string[]>([]);
@@ -73,7 +75,7 @@ export default function GestaoUsuarios() {
       const resposta = await fetch(`${API_URL}/api/usuarios`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ nome, email, senha, perfil, condominioIds: precisaCondominio ? condominioIds : undefined }),
+        body: JSON.stringify({ nome, email, telefone: telefone || undefined, senha, perfil, condominioIds: precisaCondominio ? condominioIds : undefined }),
       });
       if (!resposta.ok) {
         const dados = await resposta.json();
@@ -81,6 +83,7 @@ export default function GestaoUsuarios() {
       }
       setNome("");
       setEmail("");
+      setTelefone("");
       setSenha("");
       setPerfil("VISUALIZADOR");
       setCondominioIds([]);
@@ -137,6 +140,12 @@ export default function GestaoUsuarios() {
                 style={{ height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13 }}
               />
             </div>
+            <input
+              placeholder="Telefone com DDD (ex: 11999999999) — para avisos por WhatsApp"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+              style={{ width: "100%", height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 10, boxSizing: "border-box" }}
+            />
             <input
               placeholder="Senha provisória (mín. 8 caracteres)"
               type="password"
@@ -215,7 +224,10 @@ export default function GestaoUsuarios() {
                   <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>
                     {u.nome} {!u.ativo && <span style={{ fontSize: 11, color: "#f87171" }}>(desativado)</span>}
                   </p>
-                  <p style={{ fontSize: 12, color: "#8a8a8a", margin: "2px 0 0" }}>{u.email}</p>
+                  <p style={{ fontSize: 12, color: "#8a8a8a", margin: "2px 0 0" }}>
+                    {u.email}
+                    {u.telefone && ` · ${u.telefone}`}
+                  </p>
                   <p style={{ fontSize: 11, color: "#666", margin: "4px 0 0" }}>
                     {PERFIL_LABEL[u.perfil]}
                     {u.condominios.length > 0 && ` · ${u.condominios.map((c) => c.condominio.nome).join(", ")}`}

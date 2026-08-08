@@ -14,7 +14,6 @@ interface Local {
   id: string;
   nome: string;
   descricao?: string;
-  qrCodeUrl?: string;
   status: string;
 }
 
@@ -22,6 +21,7 @@ interface Condominio {
   id: string;
   nome: string;
   endereco: string;
+  qrCodeUrl?: string;
 }
 
 export default function Condominios() {
@@ -39,10 +39,12 @@ export default function Condominios() {
   const [emailResponsavel, setEmailResponsavel] = useState("");
   const [salvandoCondominio, setSalvandoCondominio] = useState(false);
 
-  // Formulário de novo local
+  // Formulário de novo local (ambiente)
   const [mostrarFormLocal, setMostrarFormLocal] = useState(false);
   const [nomeLocal, setNomeLocal] = useState("");
   const [salvandoLocal, setSalvandoLocal] = useState(false);
+
+  const condominioAtual = condominios.find((c) => c.id === condominioSelecionado);
 
   const carregarCondominios = async () => {
     setCarregando(true);
@@ -114,13 +116,13 @@ export default function Condominios() {
     }
   };
 
-  const regenerarQrCode = async (localId: string) => {
+  const regenerarQrCode = async () => {
     if (!condominioSelecionado) return;
-    await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/locais/${localId}/qrcode/regenerar`, {
+    await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/qrcode/regenerar`, {
       method: "POST",
       headers: authHeaders(),
     });
-    await carregarLocais(condominioSelecionado);
+    await carregarCondominios();
   };
 
   return (
@@ -218,20 +220,53 @@ export default function Condominios() {
               ))}
             </div>
 
+            {/* QR Code único do condomínio */}
+            <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1.1rem", marginBottom: 20, display: "flex", gap: 16, alignItems: "center" }}>
+              {condominioAtual?.qrCodeUrl ? (
+                <img src={condominioAtual.qrCodeUrl} alt="QR Code do condomínio" style={{ width: 110, height: 110, borderRadius: 8, background: "#fff" }} />
+              ) : (
+                <div style={{ width: 110, height: 110, borderRadius: 8, background: "#262626", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#666" }}>
+                  Sem QR Code
+                </div>
+              )}
+              <div>
+                <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>QR Code do condomínio</p>
+                <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px", maxWidth: 320 }}>
+                  Um único QR Code para todo o condomínio — pode ser impresso e colado em vários ambientes.
+                  O morador escolhe o local na hora de preencher o formulário.
+                </p>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {condominioAtual?.qrCodeUrl && (
+                    <a href={condominioAtual.qrCodeUrl} download={`qrcode-${condominioAtual.nome}.png`} style={{ fontSize: 12, color: "#EE312D", textDecoration: "none" }}>
+                      Baixar
+                    </a>
+                  )}
+                  <button onClick={regenerarQrCode} style={{ fontSize: 12, color: "#ccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                    Gerar novamente
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <p style={{ fontSize: 15, fontWeight: 500, color: "#fff", margin: 0 }}>Locais e QR Codes</p>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 500, color: "#fff", margin: 0 }}>Ambientes</p>
+                <p style={{ fontSize: 11, color: "#8a8a8a", margin: "2px 0 0" }}>
+                  Opções que aparecem no formulário para o morador escolher
+                </p>
+              </div>
               <button
                 onClick={() => setMostrarFormLocal((v) => !v)}
                 style={{ height: 32, padding: "0 12px", borderRadius: 8, background: "transparent", border: "0.5px solid #333", color: "#ccc", fontSize: 12 }}
               >
-                {mostrarFormLocal ? "Cancelar" : "+ Novo local"}
+                {mostrarFormLocal ? "Cancelar" : "+ Novo ambiente"}
               </button>
             </div>
 
             {mostrarFormLocal && (
               <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
                 <input
-                  placeholder="Ex: Hall Torre A"
+                  placeholder="Ex: Salão de Festas"
                   value={nomeLocal}
                   onChange={(e) => setNomeLocal(e.target.value)}
                   style={{ flex: 1, height: 38, borderRadius: 8, background: "#1c1c1c", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13 }}
@@ -246,32 +281,13 @@ export default function Condominios() {
               </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {locais.map((l) => (
-                <div key={l.id} style={{ background: "#1c1c1c", borderRadius: 10, padding: "12px", textAlign: "center" }}>
-                  {l.qrCodeUrl ? (
-                    <img src={l.qrCodeUrl} alt={`QR Code de ${l.nome}`} style={{ width: "100%", borderRadius: 6, marginBottom: 8, background: "#fff" }} />
-                  ) : (
-                    <div style={{ width: "100%", aspectRatio: "1", background: "#262626", borderRadius: 6, marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#666" }}>
-                      Gerando...
-                    </div>
-                  )}
-                  <p style={{ fontSize: 12, color: "#fff", margin: "0 0 6px", fontWeight: 500 }}>{l.nome}</p>
-                  {l.qrCodeUrl ? (
-                    <a href={l.qrCodeUrl} download={`qrcode-${l.nome}.png`} style={{ fontSize: 11, color: "#EE312D", textDecoration: "none" }}>
-                      Baixar
-                    </a>
-                  ) : (
-                    <button
-                      onClick={() => regenerarQrCode(l.id)}
-                      style={{ fontSize: 11, color: "#EE312D", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                    >
-                      Gerar QR Code
-                    </button>
-                  )}
-                </div>
+                <span key={l.id} style={{ fontSize: 12, padding: "7px 12px", borderRadius: 8, background: "#1c1c1c", color: "#ddd" }}>
+                  {l.nome}
+                </span>
               ))}
-              {locais.length === 0 && <p style={{ fontSize: 12, color: "#666" }}>Nenhum local cadastrado ainda.</p>}
+              {locais.length === 0 && <p style={{ fontSize: 12, color: "#666" }}>Nenhum ambiente cadastrado ainda.</p>}
             </div>
           </>
         )}
