@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
+import { CORES, FONTES } from "../theme";
 
 type TipoServico = "LIMPEZA" | "MANUTENCAO" | "PORTARIA" | "SEGURANCA";
 const SERVICO_LABEL: Record<TipoServico, string> = {
@@ -126,45 +127,45 @@ export default function Condominios() {
   };
 
   return (
-    <div style={{ background: "#141414", minHeight: "100vh" }}>
+    <div style={{ background: "#0a0a0a", minHeight: "100vh" }}>
       <NavAdmin />
 
       <div style={{ padding: "2rem 1.5rem", maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <p style={{ fontSize: 18, fontWeight: 500, color: "#fff", margin: 0 }}>Condomínios</p>
+          <p style={{ fontSize: 22, fontWeight: 900, color: CORES.texto, margin: 0, fontFamily: FONTES.titulo, letterSpacing: "-0.02em" }}>Condomínios</p>
           <button
             onClick={() => setMostrarFormCondominio((v) => !v)}
-            style={{ height: 36, padding: "0 14px", borderRadius: 8, background: "#EE312D", color: "#fff", border: "none", fontSize: 12, fontWeight: 500 }}
+            style={{ height: 38, padding: "0 18px", borderRadius: 9999, background: CORES.vermelho, color: "#fff", border: "none", fontSize: 12, fontWeight: 600, boxShadow: "0 8px 24px -6px rgba(255,59,59,0.45)" }}
           >
             {mostrarFormCondominio ? "Cancelar" : "+ Novo condomínio"}
           </button>
         </div>
 
         {mostrarFormCondominio && (
-          <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1.1rem", marginBottom: 20 }}>
+          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20 }}>
             <input
               placeholder="Nome do condomínio"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
-              style={{ width: "100%", height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
+              style={{ width: "100%", height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
             />
             <input
               placeholder="CNPJ"
               value={cnpj}
               onChange={(e) => setCnpj(e.target.value)}
-              style={{ width: "100%", height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
+              style={{ width: "100%", height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
             />
             <input
               placeholder="Endereço"
               value={endereco}
               onChange={(e) => setEndereco(e.target.value)}
-              style={{ width: "100%", height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
+              style={{ width: "100%", height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
             />
             <input
               placeholder="E-mail para receber avisos (opcional)"
               value={emailResponsavel}
               onChange={(e) => setEmailResponsavel(e.target.value)}
-              style={{ width: "100%", height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 10, boxSizing: "border-box" }}
+              style={{ width: "100%", height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 10, boxSizing: "border-box" }}
             />
             <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 6px" }}>Serviços contratados</p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
@@ -176,8 +177,8 @@ export default function Condominios() {
                     fontSize: 12,
                     padding: "6px 12px",
                     borderRadius: 8,
-                    border: servicos.includes(s) ? "none" : "0.5px solid #333",
-                    background: servicos.includes(s) ? "#EE312D" : "transparent",
+                    border: servicos.includes(s) ? "none" : "1px solid rgba(255,255,255,0.08)",
+                    background: servicos.includes(s) ? "#FF3B3B" : "transparent",
                     color: servicos.includes(s) ? "#fff" : "#aaa",
                   }}
                 >
@@ -188,7 +189,7 @@ export default function Condominios() {
             <button
               onClick={criarCondominio}
               disabled={salvandoCondominio}
-              style={{ width: "100%", height: 38, borderRadius: 8, background: "#EE312D", color: "#fff", border: "none", fontSize: 13, fontWeight: 500 }}
+              style={{ width: "100%", height: 38, borderRadius: 9999, background: "#FF3B3B", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px -6px rgba(255,59,59,0.45)" }}
             >
               {salvandoCondominio ? "Criando..." : "Criar condomínio"}
             </button>
@@ -210,8 +211,8 @@ export default function Condominios() {
                     fontSize: 12,
                     padding: "7px 14px",
                     borderRadius: 8,
-                    border: condominioSelecionado === c.id ? "none" : "0.5px solid #333",
-                    background: condominioSelecionado === c.id ? "#EE312D" : "transparent",
+                    border: condominioSelecionado === c.id ? "none" : "1px solid rgba(255,255,255,0.08)",
+                    background: condominioSelecionado === c.id ? "#FF3B3B" : "transparent",
                     color: condominioSelecionado === c.id ? "#fff" : "#aaa",
                   }}
                 >
@@ -221,11 +222,11 @@ export default function Condominios() {
             </div>
 
             {/* QR Code único do condomínio */}
-            <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1.1rem", marginBottom: 20, display: "flex", gap: 16, alignItems: "center" }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20, display: "flex", gap: 16, alignItems: "center" }}>
               {condominioAtual?.qrCodeUrl ? (
                 <img src={condominioAtual.qrCodeUrl} alt="QR Code do condomínio" style={{ width: 110, height: 110, borderRadius: 8, background: "#fff" }} />
               ) : (
-                <div style={{ width: 110, height: 110, borderRadius: 8, background: "#262626", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#666" }}>
+                <div style={{ width: 110, height: 110, borderRadius: 8, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#666" }}>
                   Sem QR Code
                 </div>
               )}
@@ -237,7 +238,7 @@ export default function Condominios() {
                 </p>
                 <div style={{ display: "flex", gap: 12 }}>
                   {condominioAtual?.qrCodeUrl && (
-                    <a href={condominioAtual.qrCodeUrl} download={`qrcode-${condominioAtual.nome}.png`} style={{ fontSize: 12, color: "#EE312D", textDecoration: "none" }}>
+                    <a href={condominioAtual.qrCodeUrl} download={`qrcode-${condominioAtual.nome}.png`} style={{ fontSize: 12, color: "#FF3B3B", textDecoration: "none" }}>
                       Baixar
                     </a>
                   )}
@@ -257,7 +258,7 @@ export default function Condominios() {
               </div>
               <button
                 onClick={() => setMostrarFormLocal((v) => !v)}
-                style={{ height: 32, padding: "0 12px", borderRadius: 8, background: "transparent", border: "0.5px solid #333", color: "#ccc", fontSize: 12 }}
+                style={{ height: 32, padding: "0 12px", borderRadius: 8, background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#ccc", fontSize: 12 }}
               >
                 {mostrarFormLocal ? "Cancelar" : "+ Novo ambiente"}
               </button>
@@ -269,12 +270,12 @@ export default function Condominios() {
                   placeholder="Ex: Salão de Festas"
                   value={nomeLocal}
                   onChange={(e) => setNomeLocal(e.target.value)}
-                  style={{ flex: 1, height: 38, borderRadius: 8, background: "#1c1c1c", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13 }}
+                  style={{ flex: 1, height: 38, borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13 }}
                 />
                 <button
                   onClick={criarLocal}
                   disabled={salvandoLocal}
-                  style={{ height: 38, padding: "0 16px", borderRadius: 8, background: "#EE312D", color: "#fff", border: "none", fontSize: 13, fontWeight: 500 }}
+                  style={{ height: 38, padding: "0 16px", borderRadius: 9999, background: "#FF3B3B", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px -6px rgba(255,59,59,0.45)" }}
                 >
                   {salvandoLocal ? "..." : "Criar"}
                 </button>
@@ -283,7 +284,7 @@ export default function Condominios() {
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {locais.map((l) => (
-                <span key={l.id} style={{ fontSize: 12, padding: "7px 12px", borderRadius: 8, background: "#1c1c1c", color: "#ddd" }}>
+                <span key={l.id} style={{ fontSize: 12, padding: "7px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", color: "#ddd" }}>
                   {l.nome}
                 </span>
               ))}

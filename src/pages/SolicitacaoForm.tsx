@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { API_URL } from "../lib/api";
+import logoUlrik from "../assets/ulrik-logo.png";
 
 // Tela aberta ao escanear o QR Code do CONDOMÍNIO (um só QR Code
 // serve para todos os ambientes). `condominioId` vem da rota
@@ -156,21 +157,23 @@ export default function SolicitacaoForm() {
 
   if (enviado) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-6">
-        <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
-          <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-6 bg-[#0a0a0a]">
+        <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
+          <svg className="w-7 h-7 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="text-lg font-medium text-neutral-900">Solicitação enviada</h1>
-        <p className="text-sm text-neutral-500 mt-1 max-w-xs">
+        <h1 className="text-lg font-medium text-white" style={{ fontFamily: "'Inter Tight', sans-serif" }}>
+          Solicitação enviada
+        </h1>
+        <p className="text-sm text-white/50 mt-1 max-w-xs">
           A equipe responsável já foi notificada e vai atender o mais breve possível.
         </p>
 
         {protocolo && (
           <div className="mt-6 w-full max-w-xs">
-            <p className="text-xs text-neutral-400 mb-1">Protocolo da sua solicitação</p>
-            <p className="text-xl font-medium tracking-wide text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-lg py-3">
+            <p className="text-xs text-white/40 mb-1">Protocolo da sua solicitação</p>
+            <p className="text-xl font-medium tracking-wide text-white bg-white/5 border border-white/10 rounded-xl py-3">
               {protocolo}
             </p>
           </div>
@@ -180,62 +183,65 @@ export default function SolicitacaoForm() {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-white">
-      <header className="flex items-center gap-3 px-5 py-4 border-b border-neutral-100">
-        {info?.condominioLogoUrl ? (
-          <img src={info.condominioLogoUrl} alt="" className="w-9 h-9 rounded-lg object-cover" />
-        ) : (
-          <div className="w-9 h-9 rounded-lg bg-neutral-100" />
-        )}
-        <div>
-          <p className="text-sm font-medium text-neutral-900 leading-tight">
-            {info?.condominioNome ?? "Carregando..."}
-          </p>
-          <p className="text-xs text-neutral-500 leading-tight">Registrar solicitação</p>
+    <div className="max-w-md mx-auto min-h-screen bg-[#0a0a0a]">
+      <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          {info?.condominioLogoUrl ? (
+            <img src={info.condominioLogoUrl} alt="" className="w-9 h-9 rounded-lg object-cover" />
+          ) : (
+            <div className="w-9 h-9 rounded-lg bg-white/5" />
+          )}
+          <div>
+            <p className="text-sm font-medium text-white leading-tight" style={{ fontFamily: "'Inter Tight', sans-serif" }}>
+              {info?.condominioNome ?? "Carregando..."}
+            </p>
+            <p className="text-xs text-white/50 leading-tight">Registrar solicitação</p>
+          </div>
         </div>
+        <img src={logoUlrik} alt="Ulrik" className="h-5 w-auto" />
       </header>
 
       <div className="px-5 py-5 space-y-6">
         <section>
-          <label className="text-sm font-medium text-neutral-900 block mb-2">Seu nome</label>
+          <label className="text-sm font-medium text-white block mb-2">Seu nome</label>
           <input
             type="text"
             value={nomeMorador}
             onChange={(e) => setNomeMorador(e.target.value)}
             placeholder="Nome completo"
-            className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
+            className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
           />
         </section>
 
         <section className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-sm font-medium text-neutral-900 block mb-2">Bloco</label>
+            <label className="text-sm font-medium text-white block mb-2">Bloco</label>
             <input
               type="text"
               value={bloco}
               onChange={(e) => setBloco(e.target.value)}
               placeholder="Ex: A"
-              className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
+              className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-900 block mb-2">Apartamento</label>
+            <label className="text-sm font-medium text-white block mb-2">Apartamento</label>
             <input
               type="text"
               value={apartamento}
               onChange={(e) => setApartamento(e.target.value)}
               placeholder="Ex: 302"
-              className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
+              className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
             />
           </div>
         </section>
 
         <section>
-          <label className="text-sm font-medium text-neutral-900 block mb-2">Local que precisa de atenção</label>
+          <label className="text-sm font-medium text-white block mb-2">Local que precisa de atenção</label>
           <select
             value={localId}
             onChange={(e) => setLocalId(e.target.value)}
-            className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
+            className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-[#141414] focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
           >
             <option value="">Selecione...</option>
             {(info?.locais ?? []).map((l) => (
@@ -247,7 +253,7 @@ export default function SolicitacaoForm() {
         </section>
 
         <section>
-          <label className="text-sm font-medium text-neutral-900 block mb-2">Tipo de solicitação</label>
+          <label className="text-sm font-medium text-white block mb-2">Tipo de solicitação</label>
           <div className="grid grid-cols-2 gap-2">
             {(info?.servicosDisponiveis ?? ["LIMPEZA", "MANUTENCAO", "PORTARIA", "SEGURANCA"]).map((s) => (
               <button
@@ -256,8 +262,8 @@ export default function SolicitacaoForm() {
                 onClick={() => setTipo(s)}
                 className={`h-10 rounded-lg text-sm font-medium border transition-colors ${
                   tipo === s
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-200 text-neutral-700"
+                    ? "border-[#FF3B3B] bg-[#FF3B3B] text-white"
+                    : "border-white/10 text-white/70"
                 }`}
               >
                 {LABELS[s]}
@@ -267,19 +273,19 @@ export default function SolicitacaoForm() {
         </section>
 
         <section>
-          <label className="text-sm font-medium text-neutral-900 block mb-2">Descrição da ocorrência</label>
+          <label className="text-sm font-medium text-white block mb-2">Descrição da ocorrência</label>
           <textarea
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Descreva o que está acontecendo"
             rows={4}
-            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300 resize-none"
+            className="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50 resize-none"
           />
         </section>
 
         <section>
-          <label className="text-sm font-medium text-neutral-900 block mb-2">
-            Foto do problema <span className="text-neutral-400 font-normal">(opcional)</span>
+          <label className="text-sm font-medium text-white block mb-2">
+            Foto do problema <span className="text-white/40 font-normal">(opcional)</span>
           </label>
           {fotoPreview ? (
             <div className="relative">
@@ -290,13 +296,13 @@ export default function SolicitacaoForm() {
                   setFoto(null);
                   setFotoPreview(null);
                 }}
-                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 text-neutral-700 text-sm flex items-center justify-center border border-neutral-200"
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-[#141414]/90 text-white text-sm flex items-center justify-center border border-white/10"
               >
                 ✕
               </button>
             </div>
           ) : (
-            <label className="flex flex-col items-center justify-center h-32 rounded-lg border-2 border-dashed border-neutral-200 text-neutral-400 text-sm cursor-pointer">
+            <label className="flex flex-col items-center justify-center h-32 rounded-lg border-2 border-dashed border-white/10 text-white/40 text-sm cursor-pointer">
               Toque para tirar ou anexar uma foto
               <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFoto} />
             </label>
@@ -305,10 +311,10 @@ export default function SolicitacaoForm() {
 
         <section>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-neutral-900">
-              Assinatura <span className="text-neutral-400 font-normal">(opcional)</span>
+            <label className="text-sm font-medium text-white">
+              Assinatura <span className="text-white/40 font-normal">(opcional)</span>
             </label>
-            <button type="button" onClick={limparAssinatura} className="text-xs text-neutral-500">
+            <button type="button" onClick={limparAssinatura} className="text-xs text-white/50">
               Limpar
             </button>
           </div>
@@ -316,7 +322,7 @@ export default function SolicitacaoForm() {
             ref={canvasRef}
             width={343}
             height={140}
-            className="w-full rounded-lg border border-neutral-200 touch-none bg-neutral-50"
+            className="w-full rounded-lg border border-white/10 touch-none bg-white/5"
             onMouseDown={iniciarTraco}
             onMouseMove={desenhar}
             onMouseUp={pararTraco}
@@ -333,7 +339,8 @@ export default function SolicitacaoForm() {
           type="button"
           disabled={!podeEnviar}
           onClick={enviar}
-          className="w-full h-11 rounded-lg bg-neutral-900 text-white text-sm font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+          className="w-full h-12 rounded-full bg-[#FF3B3B] text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{ boxShadow: podeEnviar ? "0 12px 40px -6px rgba(255,59,59,0.45)" : "none" }}
         >
           {enviando ? "Enviando..." : "Enviar solicitação"}
         </button>

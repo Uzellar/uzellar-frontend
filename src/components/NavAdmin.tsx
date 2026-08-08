@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import logoUlrik from "../assets/ulrik-logo.png";
+import { CORES, FONTES } from "../theme";
 
 const ITENS = [
   { rota: "/dashboard", rotulo: "Dashboard" },
@@ -11,24 +12,51 @@ export default function NavAdmin() {
   const { pathname } = useLocation();
 
   return (
-    <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", borderBottom: "0.5px solid #262626" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-        <p style={{ fontSize: 14, fontWeight: 500, color: "#fff", margin: 0 }}>Uzellar</p>
-        <nav style={{ display: "flex", gap: 16 }}>
-          {ITENS.map((item) => (
-            <Link
-              key={item.rota}
-              to={item.rota}
-              style={{
-                fontSize: 13,
-                textDecoration: "none",
-                color: pathname === item.rota ? "#fff" : "#8a8a8a",
-                fontWeight: pathname === item.rota ? 500 : 400,
-              }}
-            >
-              {item.rotulo}
-            </Link>
-          ))}
+    <header
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "1.1rem 1.75rem",
+        borderBottom: `1px solid ${CORES.borda}`,
+        background: "rgba(255,255,255,0.02)",
+        backdropFilter: "blur(18px)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+        <p
+          style={{
+            fontSize: 15,
+            fontWeight: 900,
+            color: CORES.texto,
+            margin: 0,
+            fontFamily: FONTES.titulo,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Uzellar
+        </p>
+        <nav style={{ display: "flex", gap: 22 }}>
+          {ITENS.map((item) => {
+            const ativo = pathname === item.rota;
+            return (
+              <Link
+                key={item.rota}
+                to={item.rota}
+                style={{
+                  fontSize: 13,
+                  textDecoration: "none",
+                  color: ativo ? CORES.texto : CORES.textoMuted,
+                  fontWeight: ativo ? 600 : 500,
+                  position: "relative",
+                  paddingBottom: 4,
+                  borderBottom: ativo ? `2px solid ${CORES.vermelho}` : "2px solid transparent",
+                }}
+              >
+                {item.rotulo}
+              </Link>
+            );
+          })}
         </nav>
       </div>
       <img src={logoUlrik} alt="Ulrik" style={{ height: 20, width: "auto" }} />

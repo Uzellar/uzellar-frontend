@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
+import { CORES, FONTES, estiloCartaoVidro } from "../theme";
 
 // Painel principal do administrador — primeira tela que aparece ao
 // logar. Números e gráficos vêm de GET /api/dashboard?condominioId=...
@@ -25,9 +27,29 @@ interface Indicadores {
 
 function Cartao({ rotulo, valor, destaque }: { rotulo: string; valor: string | number; destaque?: boolean }) {
   return (
-    <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1rem 1.1rem", flex: 1, minWidth: 130 }}>
-      <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 6px" }}>{rotulo}</p>
-      <p style={{ fontSize: 24, fontWeight: 500, margin: 0, color: destaque ? "#EE312D" : "#fff" }}>{valor}</p>
+    <div style={{ ...estiloCartaoVidro, padding: "1.1rem 1.2rem", flex: 1, minWidth: 130 }}>
+      <p style={{ fontSize: 12, color: CORES.textoMuted, margin: "0 0 6px", fontFamily: FONTES.corpo }}>{rotulo}</p>
+      <p
+        style={{
+          fontSize: 26,
+          fontWeight: 900,
+          margin: 0,
+          color: destaque ? CORES.vermelho : CORES.texto,
+          fontFamily: FONTES.titulo,
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {valor}
+      </p>
+    </div>
+  );
+}
+
+function PainelCard({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <div style={{ ...estiloCartaoVidro, padding: "1.2rem" }}>
+      <p style={{ fontSize: 13, color: CORES.texto, fontWeight: 600, margin: "0 0 14px", fontFamily: FONTES.corpo }}>{titulo}</p>
+      {children}
     </div>
   );
 }
@@ -38,8 +60,6 @@ export default function Dashboard() {
   const [condominioId, setCondominioId] = useState<string | null>(null);
   const [condominiosCarregados, setCondominiosCarregados] = useState(false);
 
-  // Ao entrar na tela, busca os condomínios que esse usuário enxerga
-  // e seleciona o primeiro automaticamente.
   useEffect(() => {
     fetch(`${API_URL}/api/condominios`, { headers: authHeaders() })
       .then((r) => r.json())
@@ -59,11 +79,11 @@ export default function Dashboard() {
 
   if (condominiosCarregados && condominios.length === 0) {
     return (
-      <div style={{ background: "#141414", minHeight: "100vh" }}>
+      <div style={{ background: CORES.fundo, minHeight: "100vh" }}>
         <NavAdmin />
-        <div style={{ padding: "2rem", color: "#8a8a8a", fontSize: 13 }}>
+        <div style={{ padding: "2rem", color: CORES.textoMuted, fontSize: 13, fontFamily: FONTES.corpo }}>
           Nenhum condomínio cadastrado ainda.{" "}
-          <a href="#/condominios" style={{ color: "#EE312D" }}>
+          <a href="#/condominios" style={{ color: CORES.vermelho }}>
             Cadastrar o primeiro
           </a>
           .
@@ -74,9 +94,9 @@ export default function Dashboard() {
 
   if (!dados) {
     return (
-      <div style={{ background: "#141414", minHeight: "100vh" }}>
+      <div style={{ background: CORES.fundo, minHeight: "100vh" }}>
         <NavAdmin />
-        <div style={{ padding: "2rem", color: "#8a8a8a", fontSize: 13 }}>Carregando indicadores...</div>
+        <div style={{ padding: "2rem", color: CORES.textoMuted, fontSize: 13, fontFamily: FONTES.corpo }}>Carregando indicadores...</div>
       </div>
     );
   }
@@ -84,13 +104,26 @@ export default function Dashboard() {
   const maiorRanking = Math.max(...dados.rankingLocais.map((r) => r.quantidade), 1);
 
   return (
-    <div style={{ background: "#141414", minHeight: "100vh" }}>
+    <div style={{ background: CORES.fundo, minHeight: "100vh" }}>
       <NavAdmin />
 
-      <div style={{ padding: "2rem 1.5rem" }}>
-        <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p style={{ fontSize: 20, fontWeight: 500, color: "#fff", margin: "0 0 4px" }}>Dashboard</p>
-          <p style={{ fontSize: 13, color: "#8a8a8a", margin: "0 0 24px" }}>Visão geral das solicitações</p>
+      <div style={{ padding: "2.5rem 1.5rem" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto" }}>
+          <p
+            style={{
+              fontSize: 26,
+              fontWeight: 900,
+              color: CORES.texto,
+              margin: "0 0 4px",
+              fontFamily: FONTES.titulo,
+              letterSpacing: "-0.03em",
+            }}
+          >
+            Dashboard
+          </p>
+          <p style={{ fontSize: 13, color: CORES.textoSecundario, margin: "0 0 28px", fontFamily: FONTES.corpo }}>
+            Visão geral das solicitações
+          </p>
 
           {/* Cartões principais */}
           <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
@@ -102,67 +135,59 @@ export default function Dashboard() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-            {/* Gráfico semanal */}
-            <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1.1rem" }}>
-              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 12px" }}>Últimas 8 semanas</p>
+            <PainelCard titulo="Últimas 8 semanas">
               <ResponsiveContainer width="100%" height={160}>
                 <BarChart data={dados.graficoSemanal}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" vertical={false} />
-                  <XAxis dataKey="rotulo" tick={{ fill: "#8a8a8a", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "#8a8a8a", fontSize: 11 }} axisLine={false} tickLine={false} width={24} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "#262626", border: "0.5px solid #333", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "#fff" }} />
-                  <Bar dataKey="quantidade" fill="#EE312D" radius={[4, 4, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="rotulo" tick={{ fill: CORES.textoMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: CORES.textoMuted, fontSize: 11 }} axisLine={false} tickLine={false} width={24} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "#1a1a1a", border: `1px solid ${CORES.borda}`, borderRadius: 10, fontSize: 12 }} labelStyle={{ color: CORES.texto }} />
+                  <Bar dataKey="quantidade" fill={CORES.vermelho} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+            </PainelCard>
 
-            {/* Gráfico mensal */}
-            <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1.1rem" }}>
-              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 12px" }}>Últimos 6 meses</p>
+            <PainelCard titulo="Últimos 6 meses">
               <ResponsiveContainer width="100%" height={160}>
                 <LineChart data={dados.graficoMensal}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" vertical={false} />
-                  <XAxis dataKey="rotulo" tick={{ fill: "#8a8a8a", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "#8a8a8a", fontSize: 11 }} axisLine={false} tickLine={false} width={24} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "#262626", border: "0.5px solid #333", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "#fff" }} />
-                  <Line type="monotone" dataKey="quantidade" stroke="#EE312D" strokeWidth={2} dot={{ r: 3, fill: "#EE312D" }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="rotulo" tick={{ fill: CORES.textoMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: CORES.textoMuted, fontSize: 11 }} axisLine={false} tickLine={false} width={24} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "#1a1a1a", border: `1px solid ${CORES.borda}`, borderRadius: 10, fontSize: 12 }} labelStyle={{ color: CORES.texto }} />
+                  <Line type="monotone" dataKey="quantidade" stroke={CORES.vermelho} strokeWidth={2} dot={{ r: 3, fill: CORES.vermelho }} />
                 </LineChart>
               </ResponsiveContainer>
-            </div>
+            </PainelCard>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            {/* Ranking de locais */}
-            <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1.1rem" }}>
-              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 12px" }}>Locais com mais ocorrências</p>
+            <PainelCard titulo="Locais com mais ocorrências">
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {dados.rankingLocais.length === 0 && <p style={{ fontSize: 12, color: "#666" }}>Nenhuma solicitação ainda.</p>}
+                {dados.rankingLocais.length === 0 && <p style={{ fontSize: 12, color: CORES.textoMuted }}>Nenhuma solicitação ainda.</p>}
                 {dados.rankingLocais.map((r) => (
                   <div key={r.local}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#ccc", marginBottom: 4 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: CORES.textoSecundario, marginBottom: 4 }}>
                       <span>{r.local}</span>
                       <span>{r.quantidade}</span>
                     </div>
-                    <div style={{ height: 6, borderRadius: 4, background: "#262626" }}>
-                      <div style={{ height: 6, borderRadius: 4, background: "#EE312D", width: `${(r.quantidade / maiorRanking) * 100}%` }} />
+                    <div style={{ height: 6, borderRadius: 4, background: "rgba(255,255,255,0.06)" }}>
+                      <div style={{ height: 6, borderRadius: 4, background: CORES.vermelho, width: `${(r.quantidade / maiorRanking) * 100}%` }} />
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </PainelCard>
 
-            {/* Por categoria */}
-            <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1.1rem" }}>
-              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 12px" }}>Por categoria</p>
+            <PainelCard titulo="Por categoria">
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {Object.entries(dados.porTipo).map(([tipo, quantidade]) => (
-                  <div key={tipo} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#ccc" }}>
+                  <div key={tipo} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: CORES.textoSecundario }}>
                     <span>{TIPO_LABEL[tipo] ?? tipo}</span>
-                    <span style={{ color: "#fff", fontWeight: 500 }}>{quantidade}</span>
+                    <span style={{ color: CORES.texto, fontWeight: 600 }}>{quantidade}</span>
                   </div>
                 ))}
               </div>
-            </div>
+            </PainelCard>
           </div>
         </div>
       </div>

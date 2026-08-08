@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
+import { CORES, FONTES } from "../theme";
 
 // Tela administrativa — só o Administrador Master enxerga essa opção
 // no menu. Lista os logins existentes e permite criar novos,
@@ -106,52 +107,52 @@ export default function GestaoUsuarios() {
   };
 
   return (
-    <div style={{ background: "#141414", minHeight: "100vh", color: "#fff" }}>
+    <div style={{ background: "#0a0a0a", minHeight: "100vh", color: "#fff" }}>
       <NavAdmin />
       <div style={{ padding: "2rem 1.5rem" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div>
-            <p style={{ fontSize: 20, fontWeight: 500, margin: 0 }}>Usuários</p>
+            <p style={{ fontSize: 22, fontWeight: 900, margin: 0, color: CORES.texto, fontFamily: FONTES.titulo, letterSpacing: "-0.02em" }}>Usuários</p>
             <p style={{ fontSize: 13, color: "#8a8a8a", margin: "2px 0 0" }}>Quem tem acesso ao painel do Uzellar</p>
           </div>
           <button
             onClick={() => setMostrarForm((v) => !v)}
-            style={{ height: 38, padding: "0 16px", borderRadius: 8, background: "#EE312D", color: "#fff", border: "none", fontSize: 13, fontWeight: 500 }}
+            style={{ height: 38, padding: "0 16px", borderRadius: 9999, background: "#FF3B3B", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px -6px rgba(255,59,59,0.45)" }}
           >
             {mostrarForm ? "Cancelar" : "+ Novo usuário"}
           </button>
         </div>
 
         {mostrarForm && (
-          <div style={{ background: "#1c1c1c", borderRadius: 12, padding: "1.25rem", marginBottom: 24 }}>
+          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.25rem", marginBottom: 24 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
               <input
                 placeholder="Nome completo"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                style={{ height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13 }}
+                style={{ height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13 }}
               />
               <input
                 placeholder="E-mail"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                style={{ height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13 }}
+                style={{ height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13 }}
               />
             </div>
             <input
               placeholder="Telefone com DDD (ex: 11999999999) — para avisos por WhatsApp"
               value={telefone}
               onChange={(e) => setTelefone(e.target.value)}
-              style={{ width: "100%", height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 10, boxSizing: "border-box" }}
+              style={{ width: "100%", height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 10, boxSizing: "border-box" }}
             />
             <input
               placeholder="Senha provisória (mín. 8 caracteres)"
               type="password"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              style={{ width: "100%", height: 38, borderRadius: 8, background: "#262626", border: "0.5px solid #333", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 10, boxSizing: "border-box" }}
+              style={{ width: "100%", height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 10, boxSizing: "border-box" }}
             />
 
             <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 6px" }}>Perfil de acesso</p>
@@ -164,8 +165,8 @@ export default function GestaoUsuarios() {
                     fontSize: 12,
                     padding: "6px 12px",
                     borderRadius: 8,
-                    border: perfil === p ? "none" : "0.5px solid #333",
-                    background: perfil === p ? "#EE312D" : "transparent",
+                    border: perfil === p ? "none" : "1px solid rgba(255,255,255,0.08)",
+                    background: perfil === p ? "#FF3B3B" : "transparent",
                     color: perfil === p ? "#fff" : "#aaa",
                   }}
                 >
@@ -186,8 +187,8 @@ export default function GestaoUsuarios() {
                         fontSize: 12,
                         padding: "6px 12px",
                         borderRadius: 8,
-                        border: condominioIds.includes(c.id) ? "none" : "0.5px solid #333",
-                        background: condominioIds.includes(c.id) ? "#EE312D" : "transparent",
+                        border: condominioIds.includes(c.id) ? "none" : "1px solid rgba(255,255,255,0.08)",
+                        background: condominioIds.includes(c.id) ? "#FF3B3B" : "transparent",
                         color: condominioIds.includes(c.id) ? "#fff" : "#aaa",
                       }}
                     >
@@ -204,7 +205,7 @@ export default function GestaoUsuarios() {
             <button
               onClick={criarUsuario}
               disabled={!podeSalvar || salvando}
-              style={{ width: "100%", height: 40, borderRadius: 8, background: "#EE312D", color: "#fff", border: "none", fontSize: 13, fontWeight: 500, opacity: podeSalvar ? 1 : 0.4 }}
+              style={{ width: "100%", height: 40, borderRadius: 8, background: "#FF3B3B", color: "#fff", border: "none", fontSize: 13, fontWeight: 500, opacity: podeSalvar ? 1 : 0.4 }}
             >
               {salvando ? "Criando..." : "Criar usuário"}
             </button>
@@ -218,7 +219,7 @@ export default function GestaoUsuarios() {
             {usuarios.map((u) => (
               <div
                 key={u.id}
-                style={{ background: "#1c1c1c", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: u.ativo ? 1 : 0.5 }}
+                style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: u.ativo ? 1 : 0.5 }}
               >
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>
@@ -236,7 +237,7 @@ export default function GestaoUsuarios() {
                 {u.ativo && (
                   <button
                     onClick={() => desativarUsuario(u.id)}
-                    style={{ fontSize: 12, color: "#8a8a8a", background: "none", border: "0.5px solid #333", borderRadius: 6, padding: "6px 10px" }}
+                    style={{ fontSize: 12, color: "#8a8a8a", background: "none", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "6px 10px" }}
                   >
                     Desativar
                   </button>
