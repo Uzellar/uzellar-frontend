@@ -2,7 +2,6 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { getToken } from "./lib/api";
 import Login from "./pages/Login";
 import SolicitacaoForm from "./pages/SolicitacaoForm";
-import ConsultaSolicitacao from "./pages/ConsultaSolicitacao";
 import Dashboard from "./pages/Dashboard";
 import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Condominios from "./pages/Condominios";
@@ -17,10 +16,8 @@ export default function App() {
   return (
     <HashRouter>
       <Routes>
-        {/* Públicas — sem login, é o que o morador usa */}
+        {/* Pública — sem login, é o que o morador usa */}
         <Route path="/atender/:condominioId" element={<SolicitacaoForm />} />
-        <Route path="/consulta" element={<ConsultaSolicitacao />} />
-        <Route path="/consulta/:protocolo" element={<ConsultaSolicitacao />} />
 
         {/* Painel administrativo */}
         <Route path="/login" element={<Login />} />

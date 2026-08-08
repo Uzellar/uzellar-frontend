@@ -40,7 +40,6 @@ export default function SolicitacaoForm() {
   const [descricao, setDescricao] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
-  const [contato, setContato] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [protocolo, setProtocolo] = useState<string | null>(null);
@@ -143,13 +142,6 @@ export default function SolicitacaoForm() {
         formData.append("assinatura", canvasRef.current.toDataURL("image/png"));
       }
 
-      // Heurística simples: se tem "@" é e-mail, senão trata como telefone.
-      const contatoLimpo = contato.trim();
-      if (contatoLimpo) {
-        if (contatoLimpo.includes("@")) formData.append("moradorEmail", contatoLimpo);
-        else formData.append("moradorTelefone", contatoLimpo);
-      }
-
       const resposta = await fetch(`${API_URL}/api/solicitacoes`, { method: "POST", body: formData });
       if (!resposta.ok) throw new Error();
       const dados = await resposta.json();
@@ -177,16 +169,10 @@ export default function SolicitacaoForm() {
 
         {protocolo && (
           <div className="mt-6 w-full max-w-xs">
-            <p className="text-xs text-neutral-400 mb-1">Guarde seu protocolo para acompanhar</p>
+            <p className="text-xs text-neutral-400 mb-1">Protocolo da sua solicitação</p>
             <p className="text-xl font-medium tracking-wide text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-lg py-3">
               {protocolo}
             </p>
-            <a
-              href={`#/consulta/${protocolo}`}
-              className="inline-block mt-3 text-sm text-neutral-900 underline underline-offset-2"
-            >
-              Consultar andamento agora
-            </a>
           </div>
         )}
       </div>
@@ -338,20 +324,6 @@ export default function SolicitacaoForm() {
             onTouchStart={iniciarTraco}
             onTouchMove={desenhar}
             onTouchEnd={pararTraco}
-          />
-        </section>
-
-        <section>
-          <label className="text-sm font-medium text-neutral-900 block mb-1">
-            E-mail ou telefone <span className="text-neutral-400 font-normal">(opcional)</span>
-          </label>
-          <p className="text-xs text-neutral-500 mb-2">Deixe seu contato para receber um aviso quando for resolvido.</p>
-          <input
-            type="text"
-            value={contato}
-            onChange={(e) => setContato(e.target.value)}
-            placeholder="seu@email.com ou (11) 99999-9999"
-            className="w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"
           />
         </section>
 
