@@ -103,7 +103,7 @@ export default function Condominios() {
           cnpj,
           endereco,
           servicos,
-          emailsResponsaveis: emailResponsavel ? [emailResponsavel] : undefined,
+          emailsResponsaveis: emailResponsavel.trim() ? [emailResponsavel.trim()] : undefined,
         }),
       });
       setNome("");
