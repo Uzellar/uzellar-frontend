@@ -126,11 +126,37 @@ export default function Condominios() {
     await carregarCondominios();
   };
 
+  const excluirCondominio = async (id: string, nome: string) => {
+    const confirmou = window.confirm(
+      `Tem certeza que quer excluir o condomínio "${nome}"?\n\nO histórico de solicitações dele é mantido, mas ele deixa de aparecer no sistema e o QR Code para de funcionar.`,
+    );
+    if (!confirmou) return;
+
+    await fetch(`${API_URL}/api/condominios/${id}`, { method: "DELETE", headers: authHeaders() });
+    if (condominioSelecionado === id) setCondominioSelecionado(null);
+    await carregarCondominios();
+  };
+
+  const excluirLocal = async (localId: string, nome: string) => {
+    if (!condominioSelecionado) return;
+    const confirmou = window.confirm(
+      `Tem certeza que quer excluir o ambiente "${nome}"?\n\nEle deixa de aparecer no formulário do morador, mas as solicitações antigas registradas nele são mantidas.`,
+    );
+    if (!confirmou) return;
+
+    await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/locais/${localId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    await carregarLocais(condominioSelecionado);
+  };
+
   return (
-    <div style={{ background: "#0a0a0a", minHeight: "100vh" }}>
+    <div style={{ background: "#0a0a0a", minHeight: "100vh", display: "flex" }}>
       <NavAdmin />
 
-      <div style={{ padding: "2rem 1.5rem", maxWidth: 720, margin: "0 auto" }}>
+      <div style={{ flex: 1, padding: "2rem 1.5rem" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <p style={{ fontSize: 22, fontWeight: 900, color: CORES.texto, margin: 0, fontFamily: FONTES.titulo, letterSpacing: "-0.02em" }}>Condomínios</p>
           <button
@@ -204,20 +230,45 @@ export default function Condominios() {
           <>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
               {condominios.map((c) => (
-                <button
+                <div
                   key={c.id}
-                  onClick={() => setCondominioSelecionado(c.id)}
                   style={{
-                    fontSize: 12,
-                    padding: "7px 14px",
+                    display: "flex",
+                    alignItems: "center",
                     borderRadius: 8,
                     border: condominioSelecionado === c.id ? "none" : "1px solid rgba(255,255,255,0.08)",
                     background: condominioSelecionado === c.id ? "#FF3B3B" : "transparent",
-                    color: condominioSelecionado === c.id ? "#fff" : "#aaa",
+                    overflow: "hidden",
                   }}
                 >
-                  {c.nome}
-                </button>
+                  <button
+                    onClick={() => setCondominioSelecionado(c.id)}
+                    style={{
+                      fontSize: 12,
+                      padding: "7px 10px 7px 14px",
+                      background: "transparent",
+                      border: "none",
+                      color: condominioSelecionado === c.id ? "#fff" : "#aaa",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {c.nome}
+                  </button>
+                  <button
+                    onClick={() => excluirCondominio(c.id, c.nome)}
+                    title="Excluir condomínio"
+                    style={{
+                      fontSize: 13,
+                      padding: "7px 12px 7px 4px",
+                      background: "transparent",
+                      border: "none",
+                      color: condominioSelecionado === c.id ? "rgba(255,255,255,0.7)" : "#666",
+                      cursor: "pointer",
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
             </div>
 
@@ -284,14 +335,25 @@ export default function Condominios() {
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {locais.map((l) => (
-                <span key={l.id} style={{ fontSize: 12, padding: "7px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", color: "#ddd" }}>
+                <span
+                  key={l.id}
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "7px 8px 7px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", color: "#ddd" }}
+                >
                   {l.nome}
+                  <button
+                    onClick={() => excluirLocal(l.id, l.nome)}
+                    title="Excluir ambiente"
+                    style={{ fontSize: 13, background: "transparent", border: "none", color: "#666", cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+                  >
+                    ×
+                  </button>
                 </span>
               ))}
               {locais.length === 0 && <p style={{ fontSize: 12, color: "#666" }}>Nenhum ambiente cadastrado ainda.</p>}
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

@@ -79,9 +79,9 @@ export default function Dashboard() {
 
   if (condominiosCarregados && condominios.length === 0) {
     return (
-      <div style={{ background: CORES.fundo, minHeight: "100vh" }}>
+      <div style={{ background: CORES.fundo, minHeight: "100vh", display: "flex" }}>
         <NavAdmin />
-        <div style={{ padding: "2rem", color: CORES.textoMuted, fontSize: 13, fontFamily: FONTES.corpo }}>
+        <div style={{ flex: 1, padding: "2rem", color: CORES.textoMuted, fontSize: 13, fontFamily: FONTES.corpo }}>
           Nenhum condomínio cadastrado ainda.{" "}
           <a href="#/condominios" style={{ color: CORES.vermelho }}>
             Cadastrar o primeiro
@@ -94,9 +94,9 @@ export default function Dashboard() {
 
   if (!dados) {
     return (
-      <div style={{ background: CORES.fundo, minHeight: "100vh" }}>
+      <div style={{ background: CORES.fundo, minHeight: "100vh", display: "flex" }}>
         <NavAdmin />
-        <div style={{ padding: "2rem", color: CORES.textoMuted, fontSize: 13, fontFamily: FONTES.corpo }}>Carregando indicadores...</div>
+        <div style={{ flex: 1, padding: "2rem", color: CORES.textoMuted, fontSize: 13, fontFamily: FONTES.corpo }}>Carregando indicadores...</div>
       </div>
     );
   }
@@ -104,10 +104,10 @@ export default function Dashboard() {
   const maiorRanking = Math.max(...dados.rankingLocais.map((r) => r.quantidade), 1);
 
   return (
-    <div style={{ background: CORES.fundo, minHeight: "100vh" }}>
+    <div style={{ background: CORES.fundo, minHeight: "100vh", display: "flex" }}>
       <NavAdmin />
 
-      <div style={{ padding: "2.5rem 1.5rem" }}>
+      <div style={{ flex: 1, padding: "2.5rem 1.5rem" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
           <p
             style={{

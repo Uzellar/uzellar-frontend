@@ -107,9 +107,9 @@ export default function GestaoUsuarios() {
   };
 
   return (
-    <div style={{ background: "#0a0a0a", minHeight: "100vh", color: "#fff" }}>
+    <div style={{ background: "#0a0a0a", minHeight: "100vh", color: "#fff", display: "flex" }}>
       <NavAdmin />
-      <div style={{ padding: "2rem 1.5rem" }}>
+      <div style={{ flex: 1, padding: "2rem 1.5rem" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div>
