@@ -18,6 +18,11 @@ interface Local {
   status: string;
 }
 
+interface EmailResponsavel {
+  id: string;
+  email: string;
+}
+
 interface Condominio {
   id: string;
   nome: string;
@@ -29,6 +34,9 @@ export default function Condominios() {
   const [condominios, setCondominios] = useState<Condominio[]>([]);
   const [condominioSelecionado, setCondominioSelecionado] = useState<string | null>(null);
   const [locais, setLocais] = useState<Local[]>([]);
+  const [emails, setEmails] = useState<EmailResponsavel[]>([]);
+  const [novoEmail, setNovoEmail] = useState("");
+  const [salvandoEmail, setSalvandoEmail] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
   // Formulário de novo condomínio
@@ -61,13 +69,22 @@ export default function Condominios() {
     setLocais(await resposta.json());
   };
 
+  const carregarEmails = async (condominioId: string) => {
+    const resposta = await fetch(`${API_URL}/api/condominios/${condominioId}`, { headers: authHeaders() });
+    const dados = await resposta.json();
+    setEmails(dados.emailsResponsaveis ?? []);
+  };
+
   useEffect(() => {
     carregarCondominios();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (condominioSelecionado) carregarLocais(condominioSelecionado);
+    if (condominioSelecionado) {
+      carregarLocais(condominioSelecionado);
+      carregarEmails(condominioSelecionado);
+    }
   }, [condominioSelecionado]);
 
   const alternarServico = (s: TipoServico) => {
@@ -149,6 +166,28 @@ export default function Condominios() {
       headers: authHeaders(),
     });
     await carregarLocais(condominioSelecionado);
+  };
+
+  const adicionarEmail = async () => {
+    if (!novoEmail.trim() || !condominioSelecionado) return;
+    setSalvandoEmail(true);
+    try {
+      await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/emails`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ email: novoEmail.trim() }),
+      });
+      setNovoEmail("");
+      await carregarEmails(condominioSelecionado);
+    } finally {
+      setSalvandoEmail(false);
+    }
+  };
+
+  const removerEmail = async (emailId: string) => {
+    if (!condominioSelecionado) return;
+    await fetch(`${API_URL}/api/condominios/emails/${emailId}`, { method: "DELETE", headers: authHeaders() });
+    await carregarEmails(condominioSelecionado);
   };
 
   return (
@@ -297,6 +336,47 @@ export default function Condominios() {
                     Gerar novamente
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* E-mails que recebem aviso de nova solicitação */}
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>E-mails de aviso</p>
+              <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px" }}>
+                Recebem um e-mail toda vez que um morador registra uma nova solicitação.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: emails.length > 0 ? 12 : 0 }}>
+                {emails.map((e) => (
+                  <span
+                    key={e.id}
+                    style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "6px 6px 6px 12px", borderRadius: 8, background: "rgba(255,255,255,0.04)", color: "#ddd" }}
+                  >
+                    {e.email}
+                    <button
+                      onClick={() => removerEmail(e.id)}
+                      title="Remover e-mail"
+                      style={{ fontSize: 13, background: "transparent", border: "none", color: "#666", cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  placeholder="email@exemplo.com"
+                  value={novoEmail}
+                  onChange={(e) => setNovoEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && adicionarEmail()}
+                  style={{ flex: 1, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13 }}
+                />
+                <button
+                  onClick={adicionarEmail}
+                  disabled={salvandoEmail}
+                  style={{ height: 36, padding: "0 14px", borderRadius: 8, background: "rgba(255,255,255,0.06)", color: "#fff", border: "1px solid rgba(255,255,255,0.08)", fontSize: 12, fontWeight: 600 }}
+                >
+                  {salvandoEmail ? "..." : "Adicionar"}
+                </button>
               </div>
             </div>
 

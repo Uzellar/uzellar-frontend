@@ -5,6 +5,7 @@ import SolicitacaoForm from "./pages/SolicitacaoForm";
 import Dashboard from "./pages/Dashboard";
 import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Condominios from "./pages/Condominios";
+import Solicitacoes from "./pages/Solicitacoes";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
 // houver token salvo, manda de volta para a tela de login.
@@ -42,6 +43,14 @@ export default function App() {
           element={
             <RotaProtegida>
               <Condominios />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="/solicitacoes"
+          element={
+            <RotaProtegida>
+              <Solicitacoes />
             </RotaProtegida>
           }
         />

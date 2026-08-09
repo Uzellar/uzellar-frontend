@@ -4,6 +4,7 @@ import { CORES, FONTES } from "../theme";
 
 const ITENS = [
   { rota: "/dashboard", rotulo: "Dashboard" },
+  { rota: "/solicitacoes", rotulo: "Solicitações" },
   { rota: "/condominios", rotulo: "Condomínios" },
   { rota: "/usuarios", rotulo: "Usuários" },
 ];
