@@ -23,6 +23,11 @@ interface EmailResponsavel {
   email: string;
 }
 
+interface TelefoneCondominio {
+  id: string;
+  numero: string;
+}
+
 interface Condominio {
   id: string;
   nome: string;
@@ -37,6 +42,9 @@ export default function Condominios() {
   const [emails, setEmails] = useState<EmailResponsavel[]>([]);
   const [novoEmail, setNovoEmail] = useState("");
   const [salvandoEmail, setSalvandoEmail] = useState(false);
+  const [telefones, setTelefones] = useState<TelefoneCondominio[]>([]);
+  const [novoTelefone, setNovoTelefone] = useState("");
+  const [salvandoTelefone, setSalvandoTelefone] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
   // Formulário de novo condomínio
@@ -73,6 +81,7 @@ export default function Condominios() {
     const resposta = await fetch(`${API_URL}/api/condominios/${condominioId}`, { headers: authHeaders() });
     const dados = await resposta.json();
     setEmails(dados.emailsResponsaveis ?? []);
+    setTelefones(dados.telefones ?? []);
   };
 
   useEffect(() => {
@@ -187,6 +196,28 @@ export default function Condominios() {
   const removerEmail = async (emailId: string) => {
     if (!condominioSelecionado) return;
     await fetch(`${API_URL}/api/condominios/emails/${emailId}`, { method: "DELETE", headers: authHeaders() });
+    await carregarEmails(condominioSelecionado);
+  };
+
+  const adicionarTelefone = async () => {
+    if (!novoTelefone.trim() || !condominioSelecionado) return;
+    setSalvandoTelefone(true);
+    try {
+      await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/telefones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ numero: novoTelefone.trim() }),
+      });
+      setNovoTelefone("");
+      await carregarEmails(condominioSelecionado);
+    } finally {
+      setSalvandoTelefone(false);
+    }
+  };
+
+  const removerTelefone = async (telefoneId: string) => {
+    if (!condominioSelecionado) return;
+    await fetch(`${API_URL}/api/condominios/telefones/${telefoneId}`, { method: "DELETE", headers: authHeaders() });
     await carregarEmails(condominioSelecionado);
   };
 
@@ -376,6 +407,47 @@ export default function Condominios() {
                   style={{ height: 36, padding: "0 14px", borderRadius: 8, background: "rgba(255,255,255,0.06)", color: "#fff", border: "1px solid rgba(255,255,255,0.08)", fontSize: 12, fontWeight: 600 }}
                 >
                   {salvandoEmail ? "..." : "Adicionar"}
+                </button>
+              </div>
+            </div>
+
+            {/* Telefones que recebem aviso por WhatsApp */}
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>Telefones de aviso (WhatsApp)</p>
+              <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px" }}>
+                Recebem uma mensagem de WhatsApp toda vez que um morador registra uma nova solicitação.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: telefones.length > 0 ? 12 : 0 }}>
+                {telefones.map((t) => (
+                  <span
+                    key={t.id}
+                    style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "6px 6px 6px 12px", borderRadius: 8, background: "rgba(255,255,255,0.04)", color: "#ddd" }}
+                  >
+                    {t.numero}
+                    <button
+                      onClick={() => removerTelefone(t.id)}
+                      title="Remover telefone"
+                      style={{ fontSize: 13, background: "transparent", border: "none", color: "#666", cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  placeholder="11999999999 (DDD + número)"
+                  value={novoTelefone}
+                  onChange={(e) => setNovoTelefone(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && adicionarTelefone()}
+                  style={{ flex: 1, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13 }}
+                />
+                <button
+                  onClick={adicionarTelefone}
+                  disabled={salvandoTelefone}
+                  style={{ height: 36, padding: "0 14px", borderRadius: 8, background: "rgba(255,255,255,0.06)", color: "#fff", border: "1px solid rgba(255,255,255,0.08)", fontSize: 12, fontWeight: 600 }}
+                >
+                  {salvandoTelefone ? "..." : "Adicionar"}
                 </button>
               </div>
             </div>

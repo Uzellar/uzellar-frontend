@@ -40,7 +40,6 @@ export default function GestaoUsuarios() {
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [telefone, setTelefone] = useState("");
   const [senha, setSenha] = useState("");
   const [perfil, setPerfil] = useState<Perfil>("VISUALIZADOR");
   const [condominioIds, setCondominioIds] = useState<string[]>([]);
@@ -76,7 +75,7 @@ export default function GestaoUsuarios() {
       const resposta = await fetch(`${API_URL}/api/usuarios`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ nome, email, telefone: telefone || undefined, senha, perfil, condominioIds: precisaCondominio ? condominioIds : undefined }),
+        body: JSON.stringify({ nome, email, senha, perfil, condominioIds: precisaCondominio ? condominioIds : undefined }),
       });
       if (!resposta.ok) {
         const dados = await resposta.json();
@@ -84,7 +83,6 @@ export default function GestaoUsuarios() {
       }
       setNome("");
       setEmail("");
-      setTelefone("");
       setSenha("");
       setPerfil("VISUALIZADOR");
       setCondominioIds([]);
@@ -141,12 +139,6 @@ export default function GestaoUsuarios() {
                 style={{ height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13 }}
               />
             </div>
-            <input
-              placeholder="Telefone com DDD (ex: 11999999999) — para avisos por WhatsApp"
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
-              style={{ width: "100%", height: 38, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 10, boxSizing: "border-box" }}
-            />
             <input
               placeholder="Senha provisória (mín. 8 caracteres)"
               type="password"
