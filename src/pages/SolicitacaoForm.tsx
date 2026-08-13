@@ -36,6 +36,7 @@ export default function SolicitacaoForm() {
   const [nomeMorador, setNomeMorador] = useState("");
   const [bloco, setBloco] = useState("");
   const [apartamento, setApartamento] = useState("");
+  const [telefoneMorador, setTelefoneMorador] = useState("");
   const [localId, setLocalId] = useState<string>("");
   const [tipo, setTipo] = useState<TipoServico | null>(null);
   const [descricao, setDescricao] = useState("");
@@ -138,6 +139,7 @@ export default function SolicitacaoForm() {
       formData.append("nomeMorador", nomeMorador);
       formData.append("bloco", bloco);
       formData.append("apartamento", apartamento);
+      if (telefoneMorador.trim()) formData.append("moradorTelefone", telefoneMorador.trim());
       if (foto) formData.append("foto", foto);
       if (!assinaturaVazia.current && canvasRef.current) {
         formData.append("assinatura", canvasRef.current.toDataURL("image/png"));
@@ -234,6 +236,20 @@ export default function SolicitacaoForm() {
               className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
             />
           </div>
+        </section>
+
+        <section>
+          <label className="text-sm font-medium text-white block mb-1">
+            Seu WhatsApp <span className="text-white/40 font-normal">(opcional)</span>
+          </label>
+          <p className="text-xs text-white/40 mb-2">Avisamos por WhatsApp quando o serviço for concluído.</p>
+          <input
+            type="text"
+            value={telefoneMorador}
+            onChange={(e) => setTelefoneMorador(e.target.value)}
+            placeholder="(11) 99999-9999"
+            className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
+          />
         </section>
 
         <section>
