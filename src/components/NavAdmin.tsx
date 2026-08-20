@@ -6,6 +6,7 @@ const ITENS = [
   { rota: "/dashboard", rotulo: "Dashboard" },
   { rota: "/solicitacoes", rotulo: "Solicitações" },
   { rota: "/condominios", rotulo: "Condomínios" },
+  { rota: "/visitas-operacionais", rotulo: "Visita Operacional" },
   { rota: "/usuarios", rotulo: "Usuários" },
 ];
 

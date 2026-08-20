@@ -33,7 +33,6 @@ interface Condominio {
   nome: string;
   endereco: string;
   qrCodeUrl?: string;
-  qrCodeVisitaUrl?: string;
 }
 
 export default function Condominios() {
@@ -46,6 +45,7 @@ export default function Condominios() {
   const [telefones, setTelefones] = useState<TelefoneCondominio[]>([]);
   const [novoTelefone, setNovoTelefone] = useState("");
   const [salvandoTelefone, setSalvandoTelefone] = useState(false);
+  const [erroTelefone, setErroTelefone] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
 
   // Formulário de novo condomínio
@@ -153,15 +153,6 @@ export default function Condominios() {
     await carregarCondominios();
   };
 
-  const regenerarQrCodeVisita = async () => {
-    if (!condominioSelecionado) return;
-    await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/qrcode-visita/regenerar`, {
-      method: "POST",
-      headers: authHeaders(),
-    });
-    await carregarCondominios();
-  };
-
   const excluirCondominio = async (id: string, nome: string) => {
     const confirmou = window.confirm(
       `Tem certeza que quer excluir o condomínio "${nome}"?\n\nO histórico de solicitações dele é mantido, mas ele deixa de aparecer no sistema e o QR Code para de funcionar.`,
@@ -212,12 +203,18 @@ export default function Condominios() {
   const adicionarTelefone = async () => {
     if (!novoTelefone.trim() || !condominioSelecionado) return;
     setSalvandoTelefone(true);
+    setErroTelefone(null);
     try {
-      await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/telefones`, {
+      const resposta = await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/telefones`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ numero: novoTelefone.trim() }),
       });
+      if (!resposta.ok) {
+        const dados = await resposta.json().catch(() => null);
+        setErroTelefone(dados?.message ?? "Não foi possível adicionar esse telefone.");
+        return;
+      }
       setNovoTelefone("");
       await carregarEmails(condominioSelecionado);
     } finally {
@@ -238,7 +235,17 @@ export default function Condominios() {
       <div style={{ flex: 1, padding: "2rem 1.5rem" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <p style={{ fontSize: 22, fontWeight: 900, color: CORES.texto, margin: 0, fontFamily: FONTES.titulo, letterSpacing: "-0.02em" }}>Condomínios</p>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <p style={{ fontSize: 22, fontWeight: 900, color: CORES.texto, margin: 0, fontFamily: FONTES.titulo, letterSpacing: "-0.02em" }}>Condomínios</p>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#4ade80", background: "rgba(74,222,128,0.12)", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 999, padding: "3px 10px" }}>
+                🧹 Limpeza
+              </span>
+            </div>
+            <p style={{ fontSize: 12, color: "#8a8a8a", margin: "4px 0 0" }}>
+              QR Code, e-mails e telefones do fluxo de reclamação/limpeza do morador.
+            </p>
+          </div>
           <button
             onClick={() => setMostrarFormCondominio((v) => !v)}
             style={{ height: 38, padding: "0 18px", borderRadius: 9999, background: CORES.vermelho, color: "#fff", border: "none", fontSize: 12, fontWeight: 600, boxShadow: "0 8px 24px -6px rgba(255,59,59,0.45)" }}
@@ -380,36 +387,9 @@ export default function Condominios() {
               </div>
             </div>
 
-            {/* QR Code de visita operacional — usado pelo supervisor, separado do QR do morador */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20, display: "flex", gap: 16, alignItems: "center" }}>
-              {condominioAtual?.qrCodeVisitaUrl ? (
-                <img src={condominioAtual.qrCodeVisitaUrl} alt="QR Code de visita operacional" style={{ width: 110, height: 110, borderRadius: 8, background: "#fff" }} />
-              ) : (
-                <div style={{ width: 110, height: 110, borderRadius: 8, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#666" }}>
-                  Sem QR Code
-                </div>
-              )}
-              <div>
-                <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>QR Code de visita operacional</p>
-                <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px", maxWidth: 320 }}>
-                  Usado pelo supervisor pra registrar o início de uma ronda — separado do QR Code do morador.
-                </p>
-                <div style={{ display: "flex", gap: 12 }}>
-                  {condominioAtual?.qrCodeVisitaUrl && (
-                    <a href={condominioAtual.qrCodeVisitaUrl} download={`qrcode-visita-${condominioAtual.nome}.png`} style={{ fontSize: 12, color: "#FF3B3B", textDecoration: "none" }}>
-                      Baixar
-                    </a>
-                  )}
-                  <button onClick={regenerarQrCodeVisita} style={{ fontSize: 12, color: "#ccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                    Gerar novamente
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* E-mails que recebem aviso de nova solicitação */}
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20 }}>
-              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>E-mails de aviso</p>
+              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>E-mails de aviso (Limpeza)</p>
               <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px" }}>
                 Recebem um e-mail toda vez que um morador registra uma nova solicitação.
               </p>
@@ -450,7 +430,7 @@ export default function Condominios() {
 
             {/* Telefones que recebem aviso por WhatsApp */}
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20 }}>
-              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>Telefones de aviso (WhatsApp)</p>
+              <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>Telefones de aviso — WhatsApp (Limpeza)</p>
               <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px" }}>
                 Recebem uma mensagem de WhatsApp toda vez que um morador registra uma nova solicitação.
               </p>
@@ -487,6 +467,7 @@ export default function Condominios() {
                   {salvandoTelefone ? "..." : "Adicionar"}
                 </button>
               </div>
+              {erroTelefone && <p style={{ fontSize: 12, color: "#ef4444", margin: "10px 0 0" }}>{erroTelefone}</p>}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>

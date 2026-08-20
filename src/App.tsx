@@ -5,6 +5,7 @@ import SolicitacaoForm from "./pages/SolicitacaoForm";
 import Dashboard from "./pages/Dashboard";
 import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Condominios from "./pages/Condominios";
+import VisitasOperacionaisAdmin from "./pages/VisitasOperacionaisAdmin";
 import Solicitacoes from "./pages/Solicitacoes";
 import VisitaForm from "./pages/VisitaForm";
 
@@ -47,6 +48,14 @@ export default function App() {
           element={
             <RotaProtegida>
               <Condominios />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="/visitas-operacionais"
+          element={
+            <RotaProtegida>
+              <VisitasOperacionaisAdmin />
             </RotaProtegida>
           }
         />
