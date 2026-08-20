@@ -38,6 +38,7 @@ interface Solicitacao {
   nomeMorador?: string;
   bloco?: string;
   apartamento?: string;
+  moradorTelefone?: string;
   fotoUrl?: string | null;
   assinaturaUrl?: string | null;
   criadoEm: string;
@@ -237,6 +238,7 @@ export default function Solicitacoes() {
                           {s.nomeMorador ?? "—"}
                           {s.bloco && ` · Bloco ${s.bloco}`}
                           {s.apartamento && ` · Apto ${s.apartamento}`}
+                          {s.moradorTelefone && ` · WhatsApp ${s.moradorTelefone}`}
                           {" · "}
                           {new Date(s.criadoEm).toLocaleDateString("pt-BR")}
                         </p>
@@ -247,6 +249,20 @@ export default function Solicitacoes() {
                     {expandido && (
                       <div style={{ padding: "0 16px 16px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                         <p style={{ fontSize: 13, color: "#ddd", margin: "14px 0" }}>{s.descricao}</p>
+
+                        {s.moradorTelefone && (
+                          <p style={{ fontSize: 12, color: CORES.textoMuted, margin: "0 0 14px" }}>
+                            WhatsApp do morador:{" "}
+                            <a
+                              href={`https://wa.me/${s.moradorTelefone.replace(/\D/g, "")}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: CORES.vermelho }}
+                            >
+                              {s.moradorTelefone}
+                            </a>
+                          </p>
+                        )}
 
                         {(s.fotoUrl || s.assinaturaUrl) && (
                           <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>

@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Condominios from "./pages/Condominios";
 import Solicitacoes from "./pages/Solicitacoes";
+import VisitaForm from "./pages/VisitaForm";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
 // houver token salvo, manda de volta para a tela de login.
@@ -19,6 +20,9 @@ export default function App() {
       <Routes>
         {/* Pública — sem login, é o que o morador usa */}
         <Route path="/atender/:condominioId" element={<SolicitacaoForm />} />
+
+        {/* Pública — sem login, é o que o supervisor usa nas rondas */}
+        <Route path="/visita/:condominioId" element={<VisitaForm />} />
 
         {/* Painel administrativo */}
         <Route path="/login" element={<Login />} />

@@ -33,6 +33,7 @@ interface Condominio {
   nome: string;
   endereco: string;
   qrCodeUrl?: string;
+  qrCodeVisitaUrl?: string;
 }
 
 export default function Condominios() {
@@ -146,6 +147,15 @@ export default function Condominios() {
   const regenerarQrCode = async () => {
     if (!condominioSelecionado) return;
     await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/qrcode/regenerar`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    await carregarCondominios();
+  };
+
+  const regenerarQrCodeVisita = async () => {
+    if (!condominioSelecionado) return;
+    await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/qrcode-visita/regenerar`, {
       method: "POST",
       headers: authHeaders(),
     });
@@ -364,6 +374,33 @@ export default function Condominios() {
                     </a>
                   )}
                   <button onClick={regenerarQrCode} style={{ fontSize: 12, color: "#ccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                    Gerar novamente
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* QR Code de visita operacional — usado pelo supervisor, separado do QR do morador */}
+            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20, display: "flex", gap: 16, alignItems: "center" }}>
+              {condominioAtual?.qrCodeVisitaUrl ? (
+                <img src={condominioAtual.qrCodeVisitaUrl} alt="QR Code de visita operacional" style={{ width: 110, height: 110, borderRadius: 8, background: "#fff" }} />
+              ) : (
+                <div style={{ width: 110, height: 110, borderRadius: 8, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#666" }}>
+                  Sem QR Code
+                </div>
+              )}
+              <div>
+                <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>QR Code de visita operacional</p>
+                <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px", maxWidth: 320 }}>
+                  Usado pelo supervisor pra registrar o início de uma ronda — separado do QR Code do morador.
+                </p>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {condominioAtual?.qrCodeVisitaUrl && (
+                    <a href={condominioAtual.qrCodeVisitaUrl} download={`qrcode-visita-${condominioAtual.nome}.png`} style={{ fontSize: 12, color: "#FF3B3B", textDecoration: "none" }}>
+                      Baixar
+                    </a>
+                  )}
+                  <button onClick={regenerarQrCodeVisita} style={{ fontSize: 12, color: "#ccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                     Gerar novamente
                   </button>
                 </div>
