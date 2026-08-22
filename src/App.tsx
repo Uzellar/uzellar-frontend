@@ -7,6 +7,7 @@ import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Condominios from "./pages/Condominios";
 import VisitasOperacionaisAdmin from "./pages/VisitasOperacionaisAdmin";
 import Solicitacoes from "./pages/Solicitacoes";
+import Relatorios from "./pages/Relatorios";
 import VisitaForm from "./pages/VisitaForm";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
@@ -64,6 +65,14 @@ export default function App() {
           element={
             <RotaProtegida>
               <Solicitacoes />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="/relatorios"
+          element={
+            <RotaProtegida>
+              <Relatorios />
             </RotaProtegida>
           }
         />
