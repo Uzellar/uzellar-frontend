@@ -24,6 +24,22 @@ interface TelefoneVisita {
   numero: string;
 }
 
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+const anoAtual = new Date().getFullYear();
+const ANOS = Array.from({ length: 5 }, (_, i) => anoAtual - i);
+
+function calcularPeriodo(ano: number, mes: number | null) {
+  if (mes === null) {
+    return { de: `${ano}-01-01`, ate: `${ano}-12-31` };
+  }
+  const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+  const mesFormatado = String(mes + 1).padStart(2, "0");
+  return { de: `${ano}-${mesFormatado}-01`, ate: `${ano}-${mesFormatado}-${ultimoDia}` };
+}
+
 export default function VisitasOperacionaisAdmin() {
   const [condominios, setCondominios] = useState<CondominioResumo[]>([]);
   const [condominioSelecionado, setCondominioSelecionado] = useState<string | null>(null);
@@ -33,6 +49,10 @@ export default function VisitasOperacionaisAdmin() {
   const [salvandoTelefone, setSalvandoTelefone] = useState(false);
   const [erroTelefone, setErroTelefone] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [ano, setAno] = useState(anoAtual);
+  const [mes, setMes] = useState<number | null>(new Date().getMonth());
+  const [baixandoRelatorio, setBaixandoRelatorio] = useState<"pdf" | "excel" | null>(null);
+  const [erroRelatorio, setErroRelatorio] = useState<string | null>(null);
 
   const carregarCondominios = async () => {
     setCarregando(true);
@@ -94,6 +114,33 @@ export default function VisitasOperacionaisAdmin() {
     if (!condominioSelecionado) return;
     await fetch(`${API_URL}/api/condominios/telefones-visita/${telefoneId}`, { method: "DELETE", headers: authHeaders() });
     await carregarDetalhe(condominioSelecionado);
+  };
+
+  const baixarRelatorio = async (formato: "pdf" | "excel") => {
+    if (!condominioSelecionado) return;
+    setBaixandoRelatorio(formato);
+    setErroRelatorio(null);
+    try {
+      const { de, ate } = calcularPeriodo(ano, mes);
+      const params = new URLSearchParams({ condominioId: condominioSelecionado, de, ate });
+      const resposta = await fetch(`${API_URL}/api/visitas/relatorio/${formato}?${params.toString()}`, {
+        headers: authHeaders(),
+      });
+      if (!resposta.ok) throw new Error();
+      const blob = await resposta.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `relatorio-visitas-uzellar.${formato === "pdf" ? "pdf" : "xlsx"}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErroRelatorio("Não foi possível gerar o relatório. Tente novamente.");
+    } finally {
+      setBaixandoRelatorio(null);
+    }
   };
 
   return (
@@ -209,6 +256,52 @@ export default function VisitasOperacionaisAdmin() {
                   </button>
                 </div>
                 {erroTelefone && <p style={{ fontSize: 12, color: "#ef4444", margin: "10px 0 0" }}>{erroTelefone}</p>}
+              </div>
+
+              {/* Relatório de visitas — próprio dessa aba, nunca o mesmo relatório de Limpeza */}
+              <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginTop: 20 }}>
+                <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>Relatório de visitas (Supervisão)</p>
+                <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px" }}>
+                  Escolha o período e baixe o relatório de visitas desse condomínio — separado do relatório de Limpeza.
+                </p>
+                <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                  <select
+                    value={mes === null ? "todos" : mes}
+                    onChange={(e) => setMes(e.target.value === "todos" ? null : Number(e.target.value))}
+                    style={{ height: 36, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13 }}
+                  >
+                    <option value="todos">Ano inteiro</option>
+                    {MESES.map((nomeMes, i) => (
+                      <option key={nomeMes} value={i}>{nomeMes}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={ano}
+                    onChange={(e) => setAno(Number(e.target.value))}
+                    style={{ height: 36, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13 }}
+                  >
+                    {ANOS.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={() => baixarRelatorio("pdf")}
+                    disabled={baixandoRelatorio === "pdf"}
+                    style={{ height: 34, padding: "0 14px", borderRadius: 8, background: CORES.vermelho, color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    {baixandoRelatorio === "pdf" ? "Gerando..." : "Baixar PDF"}
+                  </button>
+                  <button
+                    onClick={() => baixarRelatorio("excel")}
+                    disabled={baixandoRelatorio === "excel"}
+                    style={{ height: 34, padding: "0 14px", borderRadius: 8, background: "rgba(255,255,255,0.06)", color: "#fff", border: "1px solid rgba(255,255,255,0.08)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    {baixandoRelatorio === "excel" ? "Gerando..." : "Baixar Excel"}
+                  </button>
+                </div>
+                {erroRelatorio && <p style={{ fontSize: 12, color: "#ef4444", margin: "10px 0 0" }}>{erroRelatorio}</p>}
               </div>
             </>
           )}
