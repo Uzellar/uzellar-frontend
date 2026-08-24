@@ -17,6 +17,13 @@ const PERFIL_LABEL: Record<Perfil, string> = {
   VISUALIZADOR: "Visualizador",
 };
 
+// Só esses dois perfis podem ser escolhidos ao CRIAR um usuário novo
+// — os outros (Admin do Condomínio, Funcionário, Visualizador) foram
+// descontinuados por decisão do cliente, mas o rótulo acima continua
+// completo pra exibir corretamente qualquer usuário antigo que ainda
+// tenha um desses perfis no banco.
+const PERFIS_CRIAVEIS: Perfil[] = ["ADMIN_MASTER", "SUPERVISOR"];
+
 interface Condominio {
   id: string;
   nome: string;
@@ -41,7 +48,7 @@ export default function GestaoUsuarios() {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [perfil, setPerfil] = useState<Perfil>("VISUALIZADOR");
+  const [perfil, setPerfil] = useState<Perfil>("SUPERVISOR");
   const [condominioIds, setCondominioIds] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -84,7 +91,7 @@ export default function GestaoUsuarios() {
       setNome("");
       setEmail("");
       setSenha("");
-      setPerfil("VISUALIZADOR");
+      setPerfil("SUPERVISOR");
       setCondominioIds([]);
       setMostrarForm(false);
       await carregar();
@@ -149,7 +156,7 @@ export default function GestaoUsuarios() {
 
             <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 6px" }}>Perfil de acesso</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-              {(Object.keys(PERFIL_LABEL) as Perfil[]).map((p) => (
+              {PERFIS_CRIAVEIS.map((p) => (
                 <button
                   key={p}
                   onClick={() => setPerfil(p)}

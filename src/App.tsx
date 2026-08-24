@@ -1,5 +1,5 @@
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { getToken } from "./lib/api";
+import { getToken, ehAdminMaster, perfilEstaEm } from "./lib/api";
 import Login from "./pages/Login";
 import SolicitacaoForm from "./pages/SolicitacaoForm";
 import Dashboard from "./pages/Dashboard";
@@ -8,12 +8,33 @@ import Condominios from "./pages/Condominios";
 import VisitasOperacionaisAdmin from "./pages/VisitasOperacionaisAdmin";
 import Solicitacoes from "./pages/Solicitacoes";
 import Relatorios from "./pages/Relatorios";
+import RelatorioVisitas from "./pages/RelatorioVisitas";
 import VisitaForm from "./pages/VisitaForm";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
 // houver token salvo, manda de volta para a tela de login.
 function RotaProtegida({ children }: { children: JSX.Element }) {
   return getToken() ? children : <Navigate to="/login" replace />;
+}
+
+// Além de exigir login, exige também que o perfil seja Admin Master
+// — usado nas telas que os demais perfis (Supervisor, Funcionário
+// etc.) não devem acessar, mesmo digitando o endereço direto na
+// barra do navegador (a aba já fica escondida do menu, mas isso
+// sozinho não impede alguém de tentar acessar direto pela URL).
+function RotaAdminMaster({ children }: { children: JSX.Element }) {
+  if (!getToken()) return <Navigate to="/login" replace />;
+  if (!ehAdminMaster()) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+// Mesma ideia da RotaAdminMaster, só que aceita mais de um perfil —
+// usado no Relatório de Visitas, que Admin Master e Supervisor podem
+// acessar (os demais perfis, não).
+function RotaComPerfil({ perfis, children }: { perfis: string[]; children: JSX.Element }) {
+  if (!getToken()) return <Navigate to="/login" replace />;
+  if (!perfilEstaEm(...perfis)) return <Navigate to="/dashboard" replace />;
+  return children;
 }
 
 export default function App() {
@@ -39,25 +60,25 @@ export default function App() {
         <Route
           path="/usuarios"
           element={
-            <RotaProtegida>
+            <RotaAdminMaster>
               <GestaoUsuarios />
-            </RotaProtegida>
+            </RotaAdminMaster>
           }
         />
         <Route
           path="/condominios"
           element={
-            <RotaProtegida>
+            <RotaAdminMaster>
               <Condominios />
-            </RotaProtegida>
+            </RotaAdminMaster>
           }
         />
         <Route
           path="/visitas-operacionais"
           element={
-            <RotaProtegida>
+            <RotaAdminMaster>
               <VisitasOperacionaisAdmin />
-            </RotaProtegida>
+            </RotaAdminMaster>
           }
         />
         <Route
@@ -71,9 +92,17 @@ export default function App() {
         <Route
           path="/relatorios"
           element={
-            <RotaProtegida>
+            <RotaAdminMaster>
               <Relatorios />
-            </RotaProtegida>
+            </RotaAdminMaster>
+          }
+        />
+        <Route
+          path="/relatorio-visitas"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <RelatorioVisitas />
+            </RotaComPerfil>
           }
         />
 

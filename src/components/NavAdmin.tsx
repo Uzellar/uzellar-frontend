@@ -1,20 +1,43 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import logoUlrik from "../assets/ulrik-logo.png";
 import { CORES, FONTES } from "../theme";
+import { ehAdminMaster, perfilEstaEm, limparToken } from "../lib/api";
 
-const ITENS = [
+const ITENS_TODOS = [
   { rota: "/dashboard", rotulo: "Dashboard" },
   { rota: "/solicitacoes", rotulo: "Solicitações" },
   { rota: "/relatorios", rotulo: "Relatórios" },
   { rota: "/condominios", rotulo: "Condomínios" },
   { rota: "/visitas-operacionais", rotulo: "Visita Operacional" },
+  { rota: "/relatorio-visitas", rotulo: "Relatório de Visitas" },
   { rota: "/usuarios", rotulo: "Usuários" },
 ];
+
+const ITENS_BASICOS = ITENS_TODOS.filter((item) => item.rota === "/dashboard" || item.rota === "/solicitacoes");
+
+// Supervisor vê o básico + o relatório de visitas operacionais (mas
+// não QR Code/telefone da aba "Visita Operacional", nem Relatórios
+// de Limpeza, Condomínios ou Usuários — essas continuam só pro
+// Admin Master).
+const ITENS_SUPERVISOR = [...ITENS_BASICOS, ITENS_TODOS.find((i) => i.rota === "/relatorio-visitas")!];
+
+function itensPorPerfil() {
+  if (ehAdminMaster()) return ITENS_TODOS.filter((i) => i.rota !== "/relatorio-visitas"); // Admin Master usa a versão completa (QR+telefone+relatório) dentro de "Visita Operacional"
+  if (perfilEstaEm("SUPERVISOR")) return ITENS_SUPERVISOR;
+  return ITENS_BASICOS;
+}
 
 // Barra lateral fixa do painel administrativo — logo da Ulrik em
 // cima, nome do produto embaixo, e as opções de navegação abaixo.
 export default function NavAdmin() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const itens = itensPorPerfil();
+
+  const sair = () => {
+    limparToken();
+    navigate("/login");
+  };
 
   return (
     <aside
@@ -32,7 +55,7 @@ export default function NavAdmin() {
       }}
     >
       <div>
-        <img src={logoUlrik} alt="Ulrik" style={{ height: 20, width: "auto", marginBottom: 10 }} />
+        <img src={logoUlrik} alt="Ulrik" style={{ height: 30, width: "auto", marginBottom: 10 }} />
         <p
           style={{
             fontSize: 16,
@@ -47,8 +70,8 @@ export default function NavAdmin() {
         </p>
       </div>
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {ITENS.map((item) => {
+      <nav style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+        {itens.map((item) => {
           const ativo = pathname === item.rota;
           return (
             <Link
@@ -70,6 +93,23 @@ export default function NavAdmin() {
           );
         })}
       </nav>
+
+      <button
+        onClick={sair}
+        style={{
+          fontSize: 13,
+          fontWeight: 500,
+          color: CORES.textoMuted,
+          background: "transparent",
+          border: "none",
+          textAlign: "left",
+          padding: "9px 12px",
+          borderRadius: 8,
+          cursor: "pointer",
+        }}
+      >
+        Sair
+      </button>
     </aside>
   );
 }

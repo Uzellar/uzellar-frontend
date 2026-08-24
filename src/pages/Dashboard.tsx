@@ -121,9 +121,33 @@ export default function Dashboard() {
           >
             Dashboard
           </p>
-          <p style={{ fontSize: 13, color: CORES.textoSecundario, margin: "0 0 28px", fontFamily: FONTES.corpo }}>
+          <p style={{ fontSize: 13, color: CORES.textoSecundario, margin: "0 0 16px", fontFamily: FONTES.corpo }}>
             Visão geral das solicitações
           </p>
+
+          {/* Seletor de condomínio — mesmo padrão já usado em Condomínios/Solicitações/Visita Operacional */}
+          {condominios.length > 1 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
+              {condominios.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCondominioId(c.id)}
+                  style={{
+                    fontSize: 12,
+                    padding: "7px 14px",
+                    borderRadius: 8,
+                    border: condominioId === c.id ? "none" : "1px solid rgba(255,255,255,0.08)",
+                    background: condominioId === c.id ? CORES.vermelho : "transparent",
+                    color: condominioId === c.id ? "#fff" : "#aaa",
+                    cursor: "pointer",
+                    fontFamily: FONTES.corpo,
+                  }}
+                >
+                  {c.nome}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Cartões principais */}
           <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>

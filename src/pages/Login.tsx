@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_URL, setToken } from "../lib/api";
+import { API_URL, setToken, setPerfil } from "../lib/api";
 import logoUlrik from "../assets/ulrik-logo.png";
 import { CORES, FONTES, estiloCartaoVidro, estiloBotaoPrimario, estiloBadge } from "../theme";
 
@@ -23,6 +23,7 @@ export default function Login() {
       if (!resposta.ok) throw new Error();
       const dados = await resposta.json();
       setToken(dados.token);
+      setPerfil(dados.usuario?.perfil ?? "");
       navigate("/dashboard");
     } catch {
       setErro("E-mail ou senha inválidos.");
@@ -62,7 +63,7 @@ export default function Login() {
 
       <div style={{ ...estiloCartaoVidro, padding: "2.75rem 2.25rem", maxWidth: 400, width: "100%", position: "relative" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
-          <img src={logoUlrik} alt="Ulrik" style={{ height: 30, width: "auto" }} />
+          <img src={logoUlrik} alt="Ulrik" style={{ height: 42, width: "auto" }} />
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
