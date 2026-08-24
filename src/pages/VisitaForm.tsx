@@ -5,24 +5,28 @@ import logoUlrik from "../assets/ulrik-logo.png";
 
 // Tela aberta ao escanear o QR Code de VISITA do condomínio — usada
 // pelo supervisor, não pelo morador. Fluxo em duas etapas:
-// 1) nome + turno (grava o início da visita)
+// 1) nome + turno (grava o início da visita, com localização opcional)
 // 2) checklist correspondente ao turno escolhido (grava a conclusão)
 //
-// O checklist ainda é FIXO no código (Etapa 1 do projeto) — na Etapa
-// 3, a gerência vai poder configurar as perguntas pelo painel, sem
-// precisar mexer em código. Por isso as respostas já são guardadas
-// em formato livre (JSON) desde já.
+// O checklist é CONFIGURÁVEL por condomínio (Etapa 3 do projeto) —
+// as perguntas vêm da API em vez de estarem fixas no código, então a
+// gerência pode adicionar, editar ou desativar perguntas pela tela
+// "Visita Operacional", sem precisar mexer em código.
 
 type Turno = "DIURNO" | "NOTURNO" | "LIMPEZA";
+type TipoResposta = "OPCOES" | "TEXTO";
 
 interface CondominioInfo {
   condominioNome: string;
   condominioLogoUrl?: string;
 }
 
-const OPCOES_QUALIDADE = ["Excelente", "Boa", "Regular", "Ruim"];
-const OPCOES_CONFORMIDADE = ["Conforme", "Não Conforme"];
-const OPCOES_MATERIAIS = ["Adequados", "Insuficientes", "Necessitam Reposição"];
+interface Pergunta {
+  id: string;
+  texto: string;
+  tipoResposta: TipoResposta;
+  opcoes: string[] | null;
+}
 
 function CampoOpcoes({
   label,
@@ -56,6 +60,22 @@ function CampoOpcoes({
   );
 }
 
+function CampoTexto({ label, valor, onMudar }: { label: string; valor: string; onMudar: (v: string) => void }) {
+  return (
+    <section>
+      <label className="text-sm font-medium text-white block mb-2">
+        {label} <span className="text-white/40 font-normal">(opcional)</span>
+      </label>
+      <textarea
+        value={valor}
+        onChange={(e) => onMudar(e.target.value)}
+        rows={2}
+        className="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50 resize-none"
+      />
+    </section>
+  );
+}
+
 export default function VisitaForm() {
   const { condominioId } = useParams<{ condominioId: string }>();
   const [info, setInfo] = useState<CondominioInfo | null>(null);
@@ -68,18 +88,10 @@ export default function VisitaForm() {
   const [turno, setTurno] = useState<Turno | null>(null);
   const [enviandoInicio, setEnviandoInicio] = useState(false);
 
-  // Etapa 2 — checklist Portaria (Diurno/Noturno)
-  const [organizacaoPortaria, setOrganizacaoPortaria] = useState("");
-  const [uniforme, setUniforme] = useState("");
-  const [procedimentos, setProcedimentos] = useState("");
-  const [duvidasColaboradores, setDuvidasColaboradores] = useState("");
-  const [outros, setOutros] = useState("");
-
-  // Etapa 2 — checklist Limpeza
-  const [organizacaoEspacos, setOrganizacaoEspacos] = useState("");
-  const [limpeza, setLimpeza] = useState("");
-  const [materiais, setMateriais] = useState("");
-  const [observacoes, setObservacoes] = useState("");
+  // Etapa 2 — checklist dinâmico (vem da API, configurável por condomínio)
+  const [perguntas, setPerguntas] = useState<Pergunta[]>([]);
+  const [carregandoPerguntas, setCarregandoPerguntas] = useState(false);
+  const [respostas, setRespostas] = useState<Record<string, string>>({});
 
   const [enviandoChecklist, setEnviandoChecklist] = useState(false);
   const [concluida, setConcluida] = useState(false);
@@ -146,20 +158,58 @@ export default function VisitaForm() {
 
   const podeIniciar = supervisorNome.trim().length > 0 && turno !== null && !enviandoInicio;
 
+  // Tenta pegar a localização do navegador — se o supervisor não
+  // permitir, ou o celular não conseguir um sinal de GPS a tempo, a
+  // visita segue normalmente, só sem a localização. Nunca trava nem
+  // impede o registro da visita.
+  const capturarLocalizacao = (): Promise<{ latitude: number; longitude: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (posicao) => resolve({ latitude: posicao.coords.latitude, longitude: posicao.coords.longitude }),
+        () => resolve(null),
+        { timeout: 5000, maximumAge: 60_000 },
+      );
+    });
+  };
+
   const iniciarVisita = async () => {
-    if (!podeIniciar) return;
+    if (!podeIniciar || !turno) return;
     setEnviandoInicio(true);
     setErro(null);
     try {
+      const localizacao = await capturarLocalizacao();
+      if (!localizacao) {
+        setErro(
+          "É necessário permitir o acesso à localização pra registrar a visita. Verifique as permissões de localização do navegador e tente novamente.",
+        );
+        return;
+      }
       const resposta = await fetch(`${API_URL}/api/visitas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ condominioId, supervisorNome, turno }),
+        body: JSON.stringify({
+          condominioId,
+          supervisorNome,
+          turno,
+          ...localizacao,
+        }),
       });
       if (!resposta.ok) throw new Error();
       const dados = await resposta.json();
       setVisitaId(dados.id);
       setEtapa(2);
+
+      // Busca o checklist configurado pra esse condomínio — Diurno e
+      // Noturno usam o checklist de Portaria; Limpeza usa o próprio.
+      setCarregandoPerguntas(true);
+      const tipoChecklist = turno === "LIMPEZA" ? "LIMPEZA" : "PORTARIA";
+      const respPerguntas = await fetch(`${API_URL}/api/checklist?condominioId=${condominioId}&tipo=${tipoChecklist}`);
+      setPerguntas(await respPerguntas.json());
+      setCarregandoPerguntas(false);
     } catch {
       setErro("Não foi possível iniciar a visita. Tente novamente.");
     } finally {
@@ -167,25 +217,28 @@ export default function VisitaForm() {
     }
   };
 
-  const checklistPortariaCompleto =
-    organizacaoPortaria.length > 0 && uniforme.length > 0 && procedimentos.length > 0;
-  const checklistLimpezaCompleto = organizacaoEspacos.length > 0 && limpeza.length > 0 && materiais.length > 0;
-  const podeConcluir =
-    visitaId !== null &&
-    !enviandoChecklist &&
-    (turno === "LIMPEZA" ? checklistLimpezaCompleto : checklistPortariaCompleto);
+  const definirResposta = (perguntaId: string, valor: string) => {
+    setRespostas((atual) => ({ ...atual, [perguntaId]: valor }));
+  };
+
+  // Perguntas de múltipla escolha precisam de resposta pra concluir;
+  // as de texto livre são sempre opcionais (mesmo comportamento de antes).
+  const checklistCompleto = perguntas
+    .filter((p) => p.tipoResposta === "OPCOES")
+    .every((p) => !!respostas[p.id]);
+
+  const podeConcluir = visitaId !== null && !enviandoChecklist && !carregandoPerguntas && checklistCompleto;
 
   const concluirVisita = async () => {
-    if (!podeConcluir || !visitaId) return;
+    if (!podeConcluir) return;
     setEnviandoChecklist(true);
     setErro(null);
     try {
-      const respostas =
-        turno === "LIMPEZA"
-          ? { organizacaoEspacos, limpeza, materiais, observacoes }
-          : { organizacaoPortaria, uniforme, procedimentos, duvidasColaboradores, outros };
+      const listaRespostas = perguntas
+        .filter((p) => respostas[p.id])
+        .map((p) => ({ perguntaId: p.id, texto: p.texto, resposta: respostas[p.id] }));
 
-      const body: Record<string, unknown> = { respostas };
+      const body: Record<string, unknown> = { respostas: listaRespostas };
       if (!assinaturaVazia.current && canvasRef.current) {
         body.assinatura = canvasRef.current.toDataURL("image/png");
       }
@@ -272,6 +325,10 @@ export default function VisitaForm() {
 
           {erro && <p className="text-sm text-red-500">{erro}</p>}
 
+          <p className="text-xs text-white/40 text-center -mb-1">
+            O navegador vai pedir permissão de localização — é obrigatório permitir pra registrar a visita.
+          </p>
+
           <button
             type="button"
             disabled={!podeIniciar}
@@ -284,51 +341,22 @@ export default function VisitaForm() {
         </div>
       ) : (
         <div className="px-5 py-5 space-y-6">
-          {turno === "LIMPEZA" ? (
-            <>
-              <CampoOpcoes label="Organização dos Espaços" opcoes={OPCOES_QUALIDADE} valor={organizacaoEspacos} onSelecionar={setOrganizacaoEspacos} />
-              <CampoOpcoes label="Limpeza" opcoes={OPCOES_QUALIDADE} valor={limpeza} onSelecionar={setLimpeza} />
-              <CampoOpcoes label="Materiais de Limpeza" opcoes={OPCOES_MATERIAIS} valor={materiais} onSelecionar={setMateriais} />
-              <section>
-                <label className="text-sm font-medium text-white block mb-2">
-                  Observações <span className="text-white/40 font-normal">(opcional)</span>
-                </label>
-                <textarea
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50 resize-none"
-                />
-              </section>
-            </>
+          {carregandoPerguntas ? (
+            <p className="text-sm text-white/50 text-center py-8">Carregando checklist...</p>
           ) : (
-            <>
-              <CampoOpcoes label="Organização da Portaria" opcoes={OPCOES_QUALIDADE} valor={organizacaoPortaria} onSelecionar={setOrganizacaoPortaria} />
-              <CampoOpcoes label="Uniforme" opcoes={OPCOES_CONFORMIDADE} valor={uniforme} onSelecionar={setUniforme} />
-              <CampoOpcoes label="Procedimentos" opcoes={OPCOES_CONFORMIDADE} valor={procedimentos} onSelecionar={setProcedimentos} />
-              <section>
-                <label className="text-sm font-medium text-white block mb-2">
-                  Dúvidas dos Colaboradores <span className="text-white/40 font-normal">(opcional)</span>
-                </label>
-                <textarea
-                  value={duvidasColaboradores}
-                  onChange={(e) => setDuvidasColaboradores(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50 resize-none"
+            perguntas.map((p) =>
+              p.tipoResposta === "OPCOES" ? (
+                <CampoOpcoes
+                  key={p.id}
+                  label={p.texto}
+                  opcoes={p.opcoes ?? []}
+                  valor={respostas[p.id] ?? ""}
+                  onSelecionar={(v) => definirResposta(p.id, v)}
                 />
-              </section>
-              <section>
-                <label className="text-sm font-medium text-white block mb-2">
-                  Outros <span className="text-white/40 font-normal">(opcional)</span>
-                </label>
-                <textarea
-                  value={outros}
-                  onChange={(e) => setOutros(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50 resize-none"
-                />
-              </section>
-            </>
+              ) : (
+                <CampoTexto key={p.id} label={p.texto} valor={respostas[p.id] ?? ""} onMudar={(v) => definirResposta(p.id, v)} />
+              ),
+            )
           )}
 
           <section>

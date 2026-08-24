@@ -24,6 +24,16 @@ interface TelefoneVisita {
   numero: string;
 }
 
+type TipoRespostaChecklist = "OPCOES" | "TEXTO";
+
+interface PerguntaChecklist {
+  id: string;
+  texto: string;
+  tipoResposta: TipoRespostaChecklist;
+  opcoes: string[] | null;
+  ativa: boolean;
+}
+
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
@@ -54,6 +64,15 @@ export default function VisitasOperacionaisAdmin() {
   const [baixandoRelatorio, setBaixandoRelatorio] = useState<"pdf" | "excel" | null>(null);
   const [erroRelatorio, setErroRelatorio] = useState<string | null>(null);
 
+  const [tipoChecklist, setTipoChecklist] = useState<"PORTARIA" | "LIMPEZA">("PORTARIA");
+  const [perguntas, setPerguntas] = useState<PerguntaChecklist[]>([]);
+  const [carregandoPerguntas, setCarregandoPerguntas] = useState(false);
+  const [novoTexto, setNovoTexto] = useState("");
+  const [novoTipoResposta, setNovoTipoResposta] = useState<TipoRespostaChecklist>("OPCOES");
+  const [novasOpcoes, setNovasOpcoes] = useState("");
+  const [salvandoPergunta, setSalvandoPergunta] = useState(false);
+  const [erroPergunta, setErroPergunta] = useState<string | null>(null);
+
   const carregarCondominios = async () => {
     setCarregando(true);
     const resposta = await fetch(`${API_URL}/api/condominios`, { headers: authHeaders() });
@@ -78,6 +97,67 @@ export default function VisitasOperacionaisAdmin() {
   useEffect(() => {
     if (condominioSelecionado) carregarDetalhe(condominioSelecionado);
   }, [condominioSelecionado]);
+
+  const carregarPerguntas = async (condominioId: string, tipo: "PORTARIA" | "LIMPEZA") => {
+    setCarregandoPerguntas(true);
+    const params = new URLSearchParams({ condominioId, tipo });
+    const resposta = await fetch(`${API_URL}/api/checklist/gerenciar?${params.toString()}`, { headers: authHeaders() });
+    setPerguntas(await resposta.json());
+    setCarregandoPerguntas(false);
+  };
+
+  useEffect(() => {
+    if (condominioSelecionado) carregarPerguntas(condominioSelecionado, tipoChecklist);
+  }, [condominioSelecionado, tipoChecklist]);
+
+  const criarPergunta = async () => {
+    if (!condominioSelecionado || !novoTexto.trim()) return;
+    if (novoTipoResposta === "OPCOES" && novasOpcoes.split(",").map((o) => o.trim()).filter(Boolean).length < 2) {
+      setErroPergunta("Informe pelo menos 2 opções, separadas por vírgula.");
+      return;
+    }
+    setSalvandoPergunta(true);
+    setErroPergunta(null);
+    try {
+      const resposta = await fetch(`${API_URL}/api/checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({
+          condominioId: condominioSelecionado,
+          tipoChecklist,
+          texto: novoTexto.trim(),
+          tipoResposta: novoTipoResposta,
+          opcoes: novoTipoResposta === "OPCOES" ? novasOpcoes.split(",").map((o) => o.trim()).filter(Boolean) : undefined,
+        }),
+      });
+      if (!resposta.ok) {
+        const dados = await resposta.json().catch(() => null);
+        setErroPergunta(dados?.message ?? "Não foi possível adicionar essa pergunta.");
+        return;
+      }
+      setNovoTexto("");
+      setNovasOpcoes("");
+      await carregarPerguntas(condominioSelecionado, tipoChecklist);
+    } finally {
+      setSalvandoPergunta(false);
+    }
+  };
+
+  const alternarAtiva = async (pergunta: PerguntaChecklist) => {
+    if (!condominioSelecionado) return;
+    await fetch(`${API_URL}/api/checklist/${pergunta.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ ativa: !pergunta.ativa }),
+    });
+    await carregarPerguntas(condominioSelecionado, tipoChecklist);
+  };
+
+  const excluirPergunta = async (perguntaId: string) => {
+    if (!condominioSelecionado) return;
+    await fetch(`${API_URL}/api/checklist/${perguntaId}`, { method: "DELETE", headers: authHeaders() });
+    await carregarPerguntas(condominioSelecionado, tipoChecklist);
+  };
 
   const regenerarQrCodeVisita = async () => {
     if (!condominioSelecionado) return;
@@ -256,6 +336,105 @@ export default function VisitasOperacionaisAdmin() {
                   </button>
                 </div>
                 {erroTelefone && <p style={{ fontSize: 12, color: "#ef4444", margin: "10px 0 0" }}>{erroTelefone}</p>}
+              </div>
+
+              {/* Checklist personalizado — próprio de cada condomínio, editável aqui */}
+              <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginTop: 20 }}>
+                <p style={{ fontSize: 13, color: "#fff", fontWeight: 500, margin: "0 0 4px" }}>Checklist personalizado</p>
+                <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px" }}>
+                  Perguntas que o supervisor vê na hora da ronda — cada condomínio tem o seu próprio conjunto.
+                </p>
+
+                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                  <button
+                    onClick={() => setTipoChecklist("PORTARIA")}
+                    style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8, border: tipoChecklist === "PORTARIA" ? "none" : "1px solid rgba(255,255,255,0.08)", background: tipoChecklist === "PORTARIA" ? "#60a5fa" : "transparent", color: tipoChecklist === "PORTARIA" ? "#0a0a0a" : "#aaa", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Turnos Diurno/Noturno (Portaria)
+                  </button>
+                  <button
+                    onClick={() => setTipoChecklist("LIMPEZA")}
+                    style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8, border: tipoChecklist === "LIMPEZA" ? "none" : "1px solid rgba(255,255,255,0.08)", background: tipoChecklist === "LIMPEZA" ? "#60a5fa" : "transparent", color: tipoChecklist === "LIMPEZA" ? "#0a0a0a" : "#aaa", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Turno de Limpeza
+                  </button>
+                </div>
+
+                {carregandoPerguntas ? (
+                  <p style={{ fontSize: 12, color: "#8a8a8a" }}>Carregando...</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+                    {perguntas.map((p) => (
+                      <div
+                        key={p.id}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,0.03)", opacity: p.ativa ? 1 : 0.45 }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: 13, color: "#fff", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.texto}</p>
+                          <p style={{ fontSize: 11, color: "#666", margin: "2px 0 0" }}>
+                            {p.tipoResposta === "OPCOES" ? `Opções: ${(p.opcoes ?? []).join(", ")}` : "Texto livre"}
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <button
+                            onClick={() => alternarAtiva(p)}
+                            style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ccc", cursor: "pointer" }}
+                          >
+                            {p.ativa ? "Desativar" : "Ativar"}
+                          </button>
+                          <button
+                            onClick={() => excluirPergunta(p.id)}
+                            title="Excluir"
+                            style={{ fontSize: 13, padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#f87171", cursor: "pointer" }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {perguntas.length === 0 && <p style={{ fontSize: 12, color: "#666" }}>Nenhuma pergunta ainda.</p>}
+                  </div>
+                )}
+
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 12 }}>
+                  <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 8px" }}>Adicionar pergunta</p>
+                  <input
+                    placeholder="Texto da pergunta"
+                    value={novoTexto}
+                    onChange={(e) => setNovoTexto(e.target.value)}
+                    style={{ width: "100%", height: 36, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
+                  />
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                    <button
+                      onClick={() => setNovoTipoResposta("OPCOES")}
+                      style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: novoTipoResposta === "OPCOES" ? "none" : "1px solid rgba(255,255,255,0.08)", background: novoTipoResposta === "OPCOES" ? CORES.vermelho : "transparent", color: novoTipoResposta === "OPCOES" ? "#fff" : "#aaa", cursor: "pointer" }}
+                    >
+                      Múltipla escolha
+                    </button>
+                    <button
+                      onClick={() => setNovoTipoResposta("TEXTO")}
+                      style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: novoTipoResposta === "TEXTO" ? "none" : "1px solid rgba(255,255,255,0.08)", background: novoTipoResposta === "TEXTO" ? CORES.vermelho : "transparent", color: novoTipoResposta === "TEXTO" ? "#fff" : "#aaa", cursor: "pointer" }}
+                    >
+                      Texto livre
+                    </button>
+                  </div>
+                  {novoTipoResposta === "OPCOES" && (
+                    <input
+                      placeholder="Opções separadas por vírgula (ex: Excelente, Boa, Regular, Ruim)"
+                      value={novasOpcoes}
+                      onChange={(e) => setNovasOpcoes(e.target.value)}
+                      style={{ width: "100%", height: 36, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 10px", fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
+                    />
+                  )}
+                  <button
+                    onClick={criarPergunta}
+                    disabled={salvandoPergunta || !novoTexto.trim()}
+                    style={{ height: 36, padding: "0 16px", borderRadius: 8, background: "rgba(255,255,255,0.06)", color: "#fff", border: "1px solid rgba(255,255,255,0.08)", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: !novoTexto.trim() ? 0.5 : 1 }}
+                  >
+                    {salvandoPergunta ? "Adicionando..." : "Adicionar pergunta"}
+                  </button>
+                  {erroPergunta && <p style={{ fontSize: 12, color: "#ef4444", margin: "8px 0 0" }}>{erroPergunta}</p>}
+                </div>
               </div>
 
               {/* Relatório de visitas — próprio dessa aba, nunca o mesmo relatório de Limpeza */}
