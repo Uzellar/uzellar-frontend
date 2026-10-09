@@ -178,6 +178,28 @@ export default function Condominios() {
     await carregarLocais(condominioSelecionado);
   };
 
+  // Sobe/desce um ambiente na lista e grava a nova sequência — é essa
+  // ordem que aparece no formulário do morador.
+  const [erroOrdem, setErroOrdem] = useState<string | null>(null);
+  const moverLocal = async (indice: number, direcao: -1 | 1) => {
+    if (!condominioSelecionado) return;
+    const destino = indice + direcao;
+    if (destino < 0 || destino >= locais.length) return;
+    const nova = [...locais];
+    [nova[indice], nova[destino]] = [nova[destino], nova[indice]];
+    setLocais(nova); // já mostra na tela; se falhar, recarrega do servidor
+    setErroOrdem(null);
+    const resposta = await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/locais/ordem`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ ids: nova.map((l) => l.id) }),
+    }).catch(() => null);
+    if (!resposta || !resposta.ok) {
+      setErroOrdem("Não foi possível salvar a nova ordem. Tente de novo.");
+      await carregarLocais(condominioSelecionado);
+    }
+  };
+
   const adicionarEmail = async () => {
     if (!novoEmail.trim() || !condominioSelecionado) return;
     setSalvandoEmail(true);
@@ -503,21 +525,32 @@ export default function Condominios() {
               </div>
             )}
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {locais.map((l) => (
-                <span
+            {locais.length > 1 && (
+              <p style={{ fontSize: 11, color: "#8a8a8a", margin: "0 0 8px" }}>Use ↑ e ↓ para definir a sequência em que aparecem no formulário.</p>
+            )}
+            {erroOrdem && <p style={{ fontSize: 12, color: "#ef4444", margin: "0 0 8px" }}>{erroOrdem}</p>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {locais.map((l, i) => (
+                <div
                   key={l.id}
-                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "7px 8px 7px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", color: "#ddd" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, padding: "6px 8px 6px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", color: "#ddd" }}
                 >
-                  {l.nome}
+                  <span style={{ width: 20, color: "#666", fontSize: 12 }}>{i + 1}.</span>
+                  <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{l.nome}</span>
+                  <button onClick={() => moverLocal(i, -1)} disabled={i === 0} title="Subir" aria-label={`Subir ${l.nome}`} style={{ ...{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#ccc", fontSize: 13, lineHeight: 1 }, opacity: i === 0 ? 0.3 : 1, cursor: i === 0 ? "default" : "pointer" }}>
+                    ↑
+                  </button>
+                  <button onClick={() => moverLocal(i, 1)} disabled={i === locais.length - 1} title="Descer" aria-label={`Descer ${l.nome}`} style={{ ...{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#ccc", fontSize: 13, lineHeight: 1 }, opacity: i === locais.length - 1 ? 0.3 : 1, cursor: i === locais.length - 1 ? "default" : "pointer" }}>
+                    ↓
+                  </button>
                   <button
                     onClick={() => excluirLocal(l.id, l.nome)}
                     title="Excluir ambiente"
-                    style={{ fontSize: 13, background: "transparent", border: "none", color: "#666", cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+                    style={{ fontSize: 15, background: "transparent", border: "none", color: "#666", cursor: "pointer", padding: "0 4px", lineHeight: 1 }}
                   >
                     ×
                   </button>
-                </span>
+                </div>
               ))}
               {locais.length === 0 && <p style={{ fontSize: 12, color: "#666" }}>Nenhum ambiente cadastrado ainda.</p>}
             </div>
