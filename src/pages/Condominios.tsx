@@ -178,15 +178,15 @@ export default function Condominios() {
     await carregarLocais(condominioSelecionado);
   };
 
-  // Sobe/desce um ambiente na lista e grava a nova sequência — é essa
-  // ordem que aparece no formulário do morador.
+  // Reordena os ambientes (arrastando com o mouse ou pelas setas ↑ ↓)
+  // e grava a nova sequência — é essa ordem que aparece no formulário
+  // do morador.
   const [erroOrdem, setErroOrdem] = useState<string | null>(null);
-  const moverLocal = async (indice: number, direcao: -1 | 1) => {
+  const [arrastando, setArrastando] = useState<number | null>(null);
+  const [alvoArraste, setAlvoArraste] = useState<number | null>(null);
+
+  const salvarOrdem = async (nova: Local[]) => {
     if (!condominioSelecionado) return;
-    const destino = indice + direcao;
-    if (destino < 0 || destino >= locais.length) return;
-    const nova = [...locais];
-    [nova[indice], nova[destino]] = [nova[destino], nova[indice]];
     setLocais(nova); // já mostra na tela; se falhar, recarrega do servidor
     setErroOrdem(null);
     const resposta = await fetch(`${API_URL}/api/condominios/${condominioSelecionado}/locais/ordem`, {
@@ -198,6 +198,23 @@ export default function Condominios() {
       setErroOrdem("Não foi possível salvar a nova ordem. Tente de novo.");
       await carregarLocais(condominioSelecionado);
     }
+  };
+
+  // Tira o ambiente da posição "de" e coloca na posição "para".
+  const moverPara = (de: number, para: number) => {
+    if (de === para || para < 0 || para >= locais.length) return;
+    const nova = [...locais];
+    const [item] = nova.splice(de, 1);
+    nova.splice(para, 0, item);
+    salvarOrdem(nova);
+  };
+
+  const moverLocal = (indice: number, direcao: -1 | 1) => moverPara(indice, indice + direcao);
+
+  const soltarEm = (indice: number) => {
+    if (arrastando !== null) moverPara(arrastando, indice);
+    setArrastando(null);
+    setAlvoArraste(null);
   };
 
   const adicionarEmail = async () => {
@@ -526,15 +543,51 @@ export default function Condominios() {
             )}
 
             {locais.length > 1 && (
-              <p style={{ fontSize: 11, color: "#8a8a8a", margin: "0 0 8px" }}>Use ↑ e ↓ para definir a sequência em que aparecem no formulário.</p>
+              <p style={{ fontSize: 11, color: "#8a8a8a", margin: "0 0 8px" }}>Arraste com o mouse (ou use ↑ e ↓) para definir a sequência em que aparecem no formulário.</p>
             )}
             {erroOrdem && <p style={{ fontSize: 12, color: "#ef4444", margin: "0 0 8px" }}>{erroOrdem}</p>}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {locais.map((l, i) => (
                 <div
                   key={l.id}
-                  style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, padding: "6px 8px 6px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", color: "#ddd" }}
+                  draggable
+                  onDragStart={(e) => {
+                    setArrastando(i);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", l.id); // necessário pro arraste funcionar no Firefox
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (alvoArraste !== i) setAlvoArraste(i);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    soltarEm(i);
+                  }}
+                  onDragEnd={() => {
+                    setArrastando(null);
+                    setAlvoArraste(null);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: 13,
+                    padding: "6px 8px 6px 8px",
+                    borderRadius: 8,
+                    background: arrastando === i ? "rgba(255,59,59,0.10)" : "rgba(255,255,255,0.03)",
+                    color: "#ddd",
+                    cursor: "grab",
+                    opacity: arrastando === i ? 0.5 : 1,
+                    // Linha vermelha mostra onde o ambiente vai cair.
+                    boxShadow:
+                      alvoArraste === i && arrastando !== null && arrastando !== i
+                        ? `inset 0 ${arrastando < i ? -2 : 2}px 0 #FF3B3B`
+                        : "none",
+                  }}
                 >
+                  <span aria-hidden style={{ color: "#555", fontSize: 14, letterSpacing: -2, userSelect: "none" }}>⋮⋮</span>
                   <span style={{ width: 20, color: "#666", fontSize: 12 }}>{i + 1}.</span>
                   <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{l.nome}</span>
                   <button onClick={() => moverLocal(i, -1)} disabled={i === 0} title="Subir" aria-label={`Subir ${l.nome}`} style={{ ...{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#ccc", fontSize: 13, lineHeight: 1 }, opacity: i === 0 ? 0.3 : 1, cursor: i === 0 ? "default" : "pointer" }}>
