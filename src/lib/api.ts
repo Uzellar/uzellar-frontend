@@ -39,6 +39,27 @@ export function limparToken() {
   localStorage.removeItem('uzellar_perfil');
 }
 
+// Quando o login vence (8h) ou o acesso da pessoa é encerrado, a API
+// responde 401 — antes, as telas ficavam presas em "Carregando...".
+// Agora qualquer 401 vindo da API (com a pessoa logada) limpa o login
+// e volta pra tela de entrada.
+let interceptadorInstalado = false;
+export function instalarTratamentoDeLoginVencido() {
+  if (interceptadorInstalado || typeof window === 'undefined') return;
+  interceptadorInstalado = true;
+  const fetchOriginal = window.fetch.bind(window);
+  window.fetch = async (...args: Parameters<typeof fetch>) => {
+    const resposta = await fetchOriginal(...args);
+    const endereco = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : (args[0] as Request).url;
+    const ehApi = endereco.startsWith(API_URL) && !endereco.includes('/api/auth/login');
+    if (resposta.status === 401 && ehApi && getToken()) {
+      limparToken();
+      window.location.hash = '#/login';
+    }
+    return resposta;
+  };
+}
+
 export function authHeaders(): Record<string, string> {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};

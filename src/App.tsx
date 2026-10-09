@@ -3,6 +3,8 @@ import { getToken, ehAdminMaster, perfilEstaEm } from "./lib/api";
 import Login from "./pages/Login";
 import SolicitacaoForm from "./pages/SolicitacaoForm";
 import Dashboard from "./pages/Dashboard";
+import DashboardSupervisao from "./pages/DashboardSupervisao";
+import TrocarSenha from "./pages/TrocarSenha";
 import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Condominios from "./pages/Condominios";
 import VisitasOperacionaisAdmin from "./pages/VisitasOperacionaisAdmin";
@@ -54,6 +56,22 @@ export default function App() {
           element={
             <RotaProtegida>
               <Dashboard />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="/dashboard-supervisao"
+          element={
+            <RotaAdminMaster>
+              <DashboardSupervisao />
+            </RotaAdminMaster>
+          }
+        />
+        <Route
+          path="/trocar-senha"
+          element={
+            <RotaProtegida>
+              <TrocarSenha />
             </RotaProtegida>
           }
         />

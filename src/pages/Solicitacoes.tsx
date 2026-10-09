@@ -135,7 +135,7 @@ export default function Solicitacoes() {
       <div style={{ flex: 1, padding: "2.5rem 1.5rem" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <p style={{ fontSize: 26, fontWeight: 900, color: CORES.texto, margin: "0 0 4px", fontFamily: FONTES.titulo, letterSpacing: "-0.03em" }}>
-            Solicitações
+            Solicitações de condômino
           </p>
           <p style={{ fontSize: 13, color: CORES.textoSecundario, margin: "0 0 24px", fontFamily: FONTES.corpo }}>
             Tudo que os moradores registraram, com filtros e relatórios
