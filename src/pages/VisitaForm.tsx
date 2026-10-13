@@ -15,6 +15,15 @@ import logoUlrik from "../assets/ulrik-logo.png";
 
 type Turno = "DIURNO" | "NOTURNO" | "LIMPEZA";
 type TipoResposta = "OPCOES" | "TEXTO";
+type TipoChecklist = "PORTARIA" | "ZELADORIA" | "LIMPEZA";
+// Áreas que o supervisor diurno pode vistoriar — ele escolhe na hora.
+type AreaDiurna = "PORTARIA" | "ZELADORIA";
+
+const TITULO_SECAO: Record<TipoChecklist, string> = {
+  PORTARIA: "Portaria",
+  ZELADORIA: "Zeladoria e Manutenção",
+  LIMPEZA: "Limpeza",
+};
 
 interface CondominioInfo {
   condominioNome: string;
@@ -26,6 +35,7 @@ interface Pergunta {
   texto: string;
   tipoResposta: TipoResposta;
   opcoes: string[] | null;
+  tipoChecklist?: TipoChecklist;
 }
 
 function CampoOpcoes({
@@ -86,6 +96,7 @@ export default function VisitaForm() {
   const [visitaId, setVisitaId] = useState<string | null>(null);
   const [supervisorNome, setSupervisorNome] = useState("");
   const [turno, setTurno] = useState<Turno | null>(null);
+  const [areasDiurno, setAreasDiurno] = useState<AreaDiurna[]>([]);
   const [enviandoInicio, setEnviandoInicio] = useState(false);
 
   // Etapa 2 — checklist dinâmico (vem da API, configurável por condomínio)
@@ -156,7 +167,13 @@ export default function VisitaForm() {
     assinaturaVazia.current = true;
   };
 
-  const podeIniciar = supervisorNome.trim().length > 0 && turno !== null && !enviandoInicio;
+  const alternarArea = (area: AreaDiurna) => {
+    setAreasDiurno((atual) => (atual.includes(area) ? atual.filter((a) => a !== area) : [...atual, area]));
+  };
+
+  // Diurno: o supervisor precisa marcar pelo menos uma área.
+  const areasOk = turno !== "DIURNO" || areasDiurno.length > 0;
+  const podeIniciar = supervisorNome.trim().length > 0 && turno !== null && areasOk && !enviandoInicio;
 
   // Tenta pegar a localização do navegador — se o supervisor não
   // permitir, ou o celular não conseguir um sinal de GPS a tempo, a
@@ -203,12 +220,25 @@ export default function VisitaForm() {
       setVisitaId(dados.id);
       setEtapa(2);
 
-      // Busca o checklist configurado pra esse condomínio — Diurno e
-      // Noturno usam o checklist de Portaria; Limpeza usa o próprio.
+      // Busca o checklist configurado pra esse condomínio — Noturno usa
+      // Portaria; Diurno usa as áreas marcadas (Portaria e/ou Zeladoria
+      // e Manutenção, nessa ordem); Limpeza usa o próprio.
       setCarregandoPerguntas(true);
-      const tipoChecklist = turno === "LIMPEZA" ? "LIMPEZA" : "PORTARIA";
-      const respPerguntas = await fetch(`${API_URL}/api/checklist?condominioId=${condominioId}&tipo=${tipoChecklist}`);
-      setPerguntas(await respPerguntas.json());
+      const tipos: TipoChecklist[] =
+        turno === "LIMPEZA"
+          ? ["LIMPEZA"]
+          : turno === "NOTURNO"
+            ? ["PORTARIA"]
+            : (["PORTARIA", "ZELADORIA"] as AreaDiurna[]).filter((a) => areasDiurno.includes(a));
+      const listas = await Promise.all(
+        tipos.map(async (tipo) => {
+          const respPerguntas = await fetch(`${API_URL}/api/checklist?condominioId=${condominioId}&tipo=${tipo}`);
+          if (!respPerguntas.ok) throw new Error();
+          const lista: Pergunta[] = await respPerguntas.json();
+          return lista.map((p) => ({ ...p, tipoChecklist: tipo }));
+        }),
+      );
+      setPerguntas(listas.flat());
       setCarregandoPerguntas(false);
     } catch {
       setErro("Não foi possível iniciar a visita. Tente novamente.");
@@ -236,7 +266,13 @@ export default function VisitaForm() {
     try {
       const listaRespostas = perguntas
         .filter((p) => respostas[p.id])
-        .map((p) => ({ perguntaId: p.id, texto: p.texto, resposta: respostas[p.id] }));
+        .map((p) => ({
+          perguntaId: p.id,
+          texto: p.texto,
+          resposta: respostas[p.id],
+          // Só na visita diurna — separa Portaria de Zeladoria no relatório.
+          ...(turno === "DIURNO" && p.tipoChecklist ? { secao: TITULO_SECAO[p.tipoChecklist] } : {}),
+        }));
 
       const body: Record<string, unknown> = { respostas: listaRespostas };
       if (!assinaturaVazia.current && canvasRef.current) {
@@ -312,7 +348,10 @@ export default function VisitaForm() {
                 <button
                   key={t}
                   type="button"
-                  onClick={() => setTurno(t)}
+                  onClick={() => {
+                    setTurno(t);
+                    if (t !== "DIURNO") setAreasDiurno([]);
+                  }}
                   className={`h-10 rounded-lg text-sm font-medium border transition-colors ${
                     turno === t ? "border-[#FF3B3B] bg-[#FF3B3B] text-white" : "border-white/10 text-white/70"
                   }`}
@@ -322,6 +361,31 @@ export default function VisitaForm() {
               ))}
             </div>
           </section>
+
+          {turno === "DIURNO" && (
+            <section>
+              <label className="text-sm font-medium text-white block mb-1">O que você vai vistoriar?</label>
+              <p className="text-xs text-white/40 mb-2">Marque uma ou as duas opções.</p>
+              <div className="grid grid-cols-1 gap-2">
+                {(["PORTARIA", "ZELADORIA"] as AreaDiurna[]).map((a) => {
+                  const marcada = areasDiurno.includes(a);
+                  return (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => alternarArea(a)}
+                      className={`h-10 rounded-lg text-sm font-medium border transition-colors flex items-center justify-center gap-2 ${
+                        marcada ? "border-[#FF3B3B] bg-[#FF3B3B] text-white" : "border-white/10 text-white/70"
+                      }`}
+                    >
+                      <span>{marcada ? "✓" : "○"}</span>
+                      {TITULO_SECAO[a]}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {erro && <p className="text-sm text-red-500">{erro}</p>}
 
@@ -344,19 +408,35 @@ export default function VisitaForm() {
           {carregandoPerguntas ? (
             <p className="text-sm text-white/50 text-center py-8">Carregando checklist...</p>
           ) : (
-            perguntas.map((p) =>
-              p.tipoResposta === "OPCOES" ? (
-                <CampoOpcoes
-                  key={p.id}
-                  label={p.texto}
-                  opcoes={p.opcoes ?? []}
-                  valor={respostas[p.id] ?? ""}
-                  onSelecionar={(v) => definirResposta(p.id, v)}
-                />
-              ) : (
-                <CampoTexto key={p.id} label={p.texto} valor={respostas[p.id] ?? ""} onMudar={(v) => definirResposta(p.id, v)} />
-              ),
-            )
+            perguntas.map((p, i) => {
+              // Na visita diurna, mostra um título quando começa cada área.
+              const titulo =
+                turno === "DIURNO" && p.tipoChecklist && p.tipoChecklist !== perguntas[i - 1]?.tipoChecklist
+                  ? TITULO_SECAO[p.tipoChecklist]
+                  : null;
+              return (
+                <div key={p.id} className="space-y-6">
+                  {titulo && (
+                    <h2
+                      className="text-base font-semibold text-white border-b border-white/10 pb-2 pt-1"
+                      style={{ fontFamily: "'Inter Tight', sans-serif" }}
+                    >
+                      {titulo}
+                    </h2>
+                  )}
+                  {p.tipoResposta === "OPCOES" ? (
+                    <CampoOpcoes
+                      label={p.texto}
+                      opcoes={p.opcoes ?? []}
+                      valor={respostas[p.id] ?? ""}
+                      onSelecionar={(v) => definirResposta(p.id, v)}
+                    />
+                  ) : (
+                    <CampoTexto label={p.texto} valor={respostas[p.id] ?? ""} onMudar={(v) => definirResposta(p.id, v)} />
+                  )}
+                </div>
+              );
+            })
           )}
 
           <section>

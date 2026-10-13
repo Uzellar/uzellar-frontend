@@ -64,7 +64,7 @@ export default function VisitasOperacionaisAdmin() {
   const [baixandoRelatorio, setBaixandoRelatorio] = useState<"pdf" | "excel" | null>(null);
   const [erroRelatorio, setErroRelatorio] = useState<string | null>(null);
 
-  const [tipoChecklist, setTipoChecklist] = useState<"PORTARIA" | "LIMPEZA">("PORTARIA");
+  const [tipoChecklist, setTipoChecklist] = useState<"PORTARIA" | "ZELADORIA" | "LIMPEZA">("PORTARIA");
   const [perguntas, setPerguntas] = useState<PerguntaChecklist[]>([]);
   const [carregandoPerguntas, setCarregandoPerguntas] = useState(false);
   const [novoTexto, setNovoTexto] = useState("");
@@ -98,7 +98,7 @@ export default function VisitasOperacionaisAdmin() {
     if (condominioSelecionado) carregarDetalhe(condominioSelecionado);
   }, [condominioSelecionado]);
 
-  const carregarPerguntas = async (condominioId: string, tipo: "PORTARIA" | "LIMPEZA") => {
+  const carregarPerguntas = async (condominioId: string, tipo: "PORTARIA" | "ZELADORIA" | "LIMPEZA") => {
     setCarregandoPerguntas(true);
     const params = new URLSearchParams({ condominioId, tipo });
     const resposta = await fetch(`${API_URL}/api/checklist/gerenciar?${params.toString()}`, { headers: authHeaders() });
@@ -345,12 +345,18 @@ export default function VisitasOperacionaisAdmin() {
                   Perguntas que o supervisor vê na hora da ronda — cada condomínio tem o seu próprio conjunto.
                 </p>
 
-                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                   <button
                     onClick={() => setTipoChecklist("PORTARIA")}
                     style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8, border: tipoChecklist === "PORTARIA" ? "none" : "1px solid rgba(255,255,255,0.08)", background: tipoChecklist === "PORTARIA" ? "#60a5fa" : "transparent", color: tipoChecklist === "PORTARIA" ? "#0a0a0a" : "#aaa", fontWeight: 600, cursor: "pointer" }}
                   >
-                    Turnos Diurno/Noturno (Portaria)
+                    Portaria (Diurno/Noturno)
+                  </button>
+                  <button
+                    onClick={() => setTipoChecklist("ZELADORIA")}
+                    style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8, border: tipoChecklist === "ZELADORIA" ? "none" : "1px solid rgba(255,255,255,0.08)", background: tipoChecklist === "ZELADORIA" ? "#60a5fa" : "transparent", color: tipoChecklist === "ZELADORIA" ? "#0a0a0a" : "#aaa", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Zeladoria e Manutenção (Diurno)
                   </button>
                   <button
                     onClick={() => setTipoChecklist("LIMPEZA")}
