@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
+import SeletorCondominio from "../components/SeletorCondominio";
 
 type Status = "ABERTA" | "RECEBIDA" | "EM_ANDAMENTO" | "CONCLUIDA" | "CANCELADA";
 type Tipo = "LIMPEZA" | "MANUTENCAO" | "PORTARIA" | "SEGURANCA";
@@ -143,24 +144,7 @@ export default function Solicitacoes() {
 
           {/* Seletor de condomínio */}
           {condominios.length > 1 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-              {condominios.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCondominioId(c.id)}
-                  style={{
-                    fontSize: 12,
-                    padding: "7px 14px",
-                    borderRadius: 8,
-                    border: condominioId === c.id ? "none" : "1px solid rgba(255,255,255,0.08)",
-                    background: condominioId === c.id ? CORES.vermelho : "transparent",
-                    color: condominioId === c.id ? "#fff" : "#aaa",
-                  }}
-                >
-                  {c.nome}
-                </button>
-              ))}
-            </div>
+            <SeletorCondominio condominios={condominios} valor={condominioId} onChange={setCondominioId} marginBottom={16} />
           )}
 
           {/* Filtros + relatórios */}

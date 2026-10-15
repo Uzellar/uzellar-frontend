@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
+import { normalizarBusca } from "../components/SeletorCondominio";
 
 // Aba dedicada ao relatório do fluxo de LIMPEZA (reclamação do
 // morador) — o relatório de Supervisão (visitas) fica na aba
@@ -41,6 +42,7 @@ export default function Relatorios() {
   const [erro, setErro] = useState<string | null>(null);
   const [ano, setAno] = useState(anoAtual);
   const [mes, setMes] = useState<number | null>(new Date().getMonth());
+  const [busca, setBusca] = useState("");
 
   useEffect(() => {
     fetch(`${API_URL}/api/condominios`, { headers: authHeaders() })
@@ -130,7 +132,16 @@ export default function Relatorios() {
             <p style={{ fontSize: 13, color: "#8a8a8a" }}>Nenhum condomínio cadastrado ainda.</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {condominios.map((c) => (
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="🔍 Pesquisar condomínio..."
+                style={{ height: 38, maxWidth: 420, borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#fff", padding: "0 12px", fontSize: 13, outline: "none" }}
+              />
+              {condominios.filter((c) => normalizarBusca(c.nome).includes(normalizarBusca(busca))).length === 0 && (
+                <p style={{ fontSize: 13, color: "#8a8a8a", margin: 0 }}>Nenhum condomínio encontrado.</p>
+              )}
+              {condominios.filter((c) => normalizarBusca(c.nome).includes(normalizarBusca(busca))).map((c) => (
                 <div
                   key={c.id}
                   style={{

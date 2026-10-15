@@ -4,6 +4,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tool
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES, estiloCartaoVidro } from "../theme";
+import SeletorCondominio from "../components/SeletorCondominio";
 
 // Painel principal do administrador — primeira tela que aparece ao
 // logar. Números e gráficos vêm de GET /api/dashboard?condominioId=...
@@ -127,26 +128,7 @@ export default function Dashboard() {
 
           {/* Seletor de condomínio — mesmo padrão já usado em Condomínios/Solicitações/Visita Operacional */}
           {condominios.length > 1 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
-              {condominios.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCondominioId(c.id)}
-                  style={{
-                    fontSize: 12,
-                    padding: "7px 14px",
-                    borderRadius: 8,
-                    border: condominioId === c.id ? "none" : "1px solid rgba(255,255,255,0.08)",
-                    background: condominioId === c.id ? CORES.vermelho : "transparent",
-                    color: condominioId === c.id ? "#fff" : "#aaa",
-                    cursor: "pointer",
-                    fontFamily: FONTES.corpo,
-                  }}
-                >
-                  {c.nome}
-                </button>
-              ))}
-            </div>
+            <SeletorCondominio condominios={condominios} valor={condominioId} onChange={setCondominioId} marginBottom={24} />
           )}
 
           {/* Cartões principais */}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
+import SeletorCondominio from "../components/SeletorCondominio";
 
 type TipoServico = "LIMPEZA" | "MANUTENCAO" | "PORTARIA" | "SEGURANCA";
 const SERVICO_LABEL: Record<TipoServico, string> = {
@@ -354,49 +355,31 @@ export default function Condominios() {
           <p style={{ fontSize: 13, color: "#8a8a8a" }}>Nenhum condomínio cadastrado ainda.</p>
         ) : (
           <>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
-              {condominios.map((c) => (
-                <div
-                  key={c.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    borderRadius: 8,
-                    border: condominioSelecionado === c.id ? "none" : "1px solid rgba(255,255,255,0.08)",
-                    background: condominioSelecionado === c.id ? "#FF3B3B" : "transparent",
-                    overflow: "hidden",
-                  }}
-                >
+            <SeletorCondominio
+              condominios={condominios}
+              valor={condominioSelecionado}
+              onChange={setCondominioSelecionado}
+              extra={
+                condominioAtual && (
                   <button
-                    onClick={() => setCondominioSelecionado(c.id)}
-                    style={{
-                      fontSize: 12,
-                      padding: "7px 10px 7px 14px",
-                      background: "transparent",
-                      border: "none",
-                      color: condominioSelecionado === c.id ? "#fff" : "#aaa",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {c.nome}
-                  </button>
-                  <button
-                    onClick={() => excluirCondominio(c.id, c.nome)}
+                    onClick={() => excluirCondominio(condominioAtual.id, condominioAtual.nome)}
                     title="Excluir condomínio"
                     style={{
-                      fontSize: 13,
-                      padding: "7px 12px 7px 4px",
+                      height: 40,
+                      padding: "0 14px",
+                      borderRadius: 10,
                       background: "transparent",
-                      border: "none",
-                      color: condominioSelecionado === c.id ? "rgba(255,255,255,0.7)" : "#666",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: "#aaa",
+                      fontSize: 12,
                       cursor: "pointer",
                     }}
                   >
-                    ×
+                    Excluir condomínio
                   </button>
-                </div>
-              ))}
-            </div>
+                )
+              }
+            />
 
             {/* QR Code único do condomínio */}
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20, display: "flex", gap: 16, alignItems: "center" }}>

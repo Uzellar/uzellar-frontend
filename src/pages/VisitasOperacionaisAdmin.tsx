@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
+import SeletorCondominio from "../components/SeletorCondominio";
 
 // Aba separada de propósito da tela de "Condomínios" — aqui só vive
 // o que pertence ao fluxo de VISITA OPERACIONAL (supervisão): QR
@@ -249,25 +250,7 @@ export default function VisitasOperacionaisAdmin() {
             <p style={{ fontSize: 13, color: "#8a8a8a" }}>Nenhum condomínio cadastrado ainda — crie um na aba "Condomínios".</p>
           ) : (
             <>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
-                {condominios.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setCondominioSelecionado(c.id)}
-                    style={{
-                      fontSize: 12,
-                      padding: "7px 14px",
-                      borderRadius: 8,
-                      border: condominioSelecionado === c.id ? "none" : "1px solid rgba(255,255,255,0.08)",
-                      background: condominioSelecionado === c.id ? "#FF3B3B" : "transparent",
-                      color: condominioSelecionado === c.id ? "#fff" : "#aaa",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {c.nome}
-                  </button>
-                ))}
-              </div>
+              <SeletorCondominio condominios={condominios} valor={condominioSelecionado} onChange={setCondominioSelecionado} />
 
               {/* QR Code de visita operacional — próprio dessa aba, nunca o mesmo da Limpeza */}
               <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.1rem", marginBottom: 20, display: "flex", gap: 16, alignItems: "center" }}>
