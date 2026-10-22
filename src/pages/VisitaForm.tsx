@@ -30,6 +30,46 @@ interface CondominioInfo {
   condominioLogoUrl?: string;
 }
 
+// Visita em andamento guardada no próprio aparelho do supervisor: se ele
+// fechar a página no meio da vistoria (que leva uns 30 min) e ler o QR
+// Code de novo, continua de onde parou até concluir. Expira em 12 h.
+const VALIDADE_VISITA_SALVA_MS = 12 * 60 * 60 * 1000;
+const chaveVisitaSalva = (condominioId?: string) => `uzellar_visita_andamento_${condominioId}`;
+
+interface VisitaSalva {
+  visitaId: string;
+  supervisorNome: string;
+  turno: Turno;
+  areasDiurno: AreaDiurna[];
+  perguntas: Pergunta[];
+  respostas: Record<string, string>;
+  iniciadaEm: number;
+}
+
+function lerVisitaSalva(condominioId?: string): VisitaSalva | null {
+  try {
+    const bruto = localStorage.getItem(chaveVisitaSalva(condominioId));
+    if (!bruto) return null;
+    const salva = JSON.parse(bruto) as VisitaSalva;
+    if (!salva?.visitaId || !salva.turno || Date.now() - salva.iniciadaEm > VALIDADE_VISITA_SALVA_MS) {
+      localStorage.removeItem(chaveVisitaSalva(condominioId));
+      return null;
+    }
+    return salva;
+  } catch {
+    return null;
+  }
+}
+
+function gravarVisitaSalva(condominioId: string | undefined, salva: VisitaSalva | null) {
+  try {
+    if (salva) localStorage.setItem(chaveVisitaSalva(condominioId), JSON.stringify(salva));
+    else localStorage.removeItem(chaveVisitaSalva(condominioId));
+  } catch {
+    // Sem armazenamento (ex.: aba anônima) — a visita segue normal, só não é retomada.
+  }
+}
+
 interface Pergunta {
   id: string;
   texto: string;
@@ -107,6 +147,12 @@ export default function VisitaForm() {
   const [enviandoChecklist, setEnviandoChecklist] = useState(false);
   const [concluida, setConcluida] = useState(false);
 
+  // Momento em que a visita começou (pra mostrar no aviso de retomada) e
+  // se ela foi retomada de uma sessão anterior neste aparelho.
+  const [iniciadaEm, setIniciadaEm] = useState<number | null>(null);
+  const [retomada, setRetomada] = useState(false);
+  const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const desenhando = useRef(false);
   const assinaturaVazia = useRef(true);
@@ -117,6 +163,52 @@ export default function VisitaForm() {
       .then(setInfo)
       .catch(() => setErro("Não foi possível carregar as informações deste condomínio."));
   }, [condominioId]);
+
+  // Ao abrir a página: se houver uma visita em andamento salva neste
+  // aparelho para este condomínio, volta direto pro checklist.
+  useEffect(() => {
+    const salva = lerVisitaSalva(condominioId);
+    if (!salva) return;
+    setVisitaId(salva.visitaId);
+    setSupervisorNome(salva.supervisorNome);
+    setTurno(salva.turno);
+    setAreasDiurno(salva.areasDiurno ?? []);
+    setRespostas(salva.respostas ?? {});
+    setIniciadaEm(salva.iniciadaEm);
+    setRetomada(true);
+    setEtapa(2);
+    if (salva.perguntas && salva.perguntas.length > 0) {
+      setPerguntas(salva.perguntas);
+    } else {
+      // Caiu antes de o checklist carregar — busca de novo.
+      setCarregandoPerguntas(true);
+      carregarPerguntas(salva.turno, salva.areasDiurno ?? [])
+        .then(setPerguntas)
+        .catch(() => setErro("Não foi possível carregar o checklist. Recarregue a página."))
+        .finally(() => setCarregandoPerguntas(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condominioId]);
+
+  // Guarda o andamento a cada resposta marcada.
+  useEffect(() => {
+    if (!visitaId || !turno || !iniciadaEm || concluida) return;
+    gravarVisitaSalva(condominioId, { visitaId, supervisorNome, turno, areasDiurno, perguntas, respostas, iniciadaEm });
+  }, [condominioId, visitaId, supervisorNome, turno, areasDiurno, perguntas, respostas, iniciadaEm, concluida]);
+
+  // Descarta a visita salva neste aparelho e volta pra tela inicial.
+  // (A visita já criada continua no sistema como "em andamento".)
+  const descartarVisita = () => {
+    gravarVisitaSalva(condominioId, null);
+    setVisitaId(null);
+    setPerguntas([]);
+    setRespostas({});
+    setIniciadaEm(null);
+    setRetomada(false);
+    setConfirmandoDescarte(false);
+    setErro(null);
+    setEtapa(1);
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -193,6 +285,27 @@ export default function VisitaForm() {
     });
   };
 
+  // Busca o checklist configurado pra esse condomínio — Noturno usa
+  // Portaria; Diurno usa as áreas marcadas (Portaria e/ou Zeladoria
+  // e Manutenção, nessa ordem); Limpeza usa o próprio.
+  const carregarPerguntas = async (turnoEscolhido: Turno, areas: AreaDiurna[]): Promise<Pergunta[]> => {
+    const tipos: TipoChecklist[] =
+      turnoEscolhido === "LIMPEZA"
+        ? ["LIMPEZA"]
+        : turnoEscolhido === "NOTURNO"
+          ? ["PORTARIA"]
+          : (["PORTARIA", "ZELADORIA"] as AreaDiurna[]).filter((a) => areas.includes(a));
+    const listas = await Promise.all(
+      tipos.map(async (tipo) => {
+        const respPerguntas = await fetch(`${API_URL}/api/checklist?condominioId=${condominioId}&tipo=${tipo}`);
+        if (!respPerguntas.ok) throw new Error();
+        const lista: Pergunta[] = await respPerguntas.json();
+        return lista.map((p) => ({ ...p, tipoChecklist: tipo }));
+      }),
+    );
+    return listas.flat();
+  };
+
   const iniciarVisita = async () => {
     if (!podeIniciar || !turno) return;
     setEnviandoInicio(true);
@@ -218,27 +331,11 @@ export default function VisitaForm() {
       if (!resposta.ok) throw new Error();
       const dados = await resposta.json();
       setVisitaId(dados.id);
+      setIniciadaEm(Date.now());
       setEtapa(2);
 
-      // Busca o checklist configurado pra esse condomínio — Noturno usa
-      // Portaria; Diurno usa as áreas marcadas (Portaria e/ou Zeladoria
-      // e Manutenção, nessa ordem); Limpeza usa o próprio.
       setCarregandoPerguntas(true);
-      const tipos: TipoChecklist[] =
-        turno === "LIMPEZA"
-          ? ["LIMPEZA"]
-          : turno === "NOTURNO"
-            ? ["PORTARIA"]
-            : (["PORTARIA", "ZELADORIA"] as AreaDiurna[]).filter((a) => areasDiurno.includes(a));
-      const listas = await Promise.all(
-        tipos.map(async (tipo) => {
-          const respPerguntas = await fetch(`${API_URL}/api/checklist?condominioId=${condominioId}&tipo=${tipo}`);
-          if (!respPerguntas.ok) throw new Error();
-          const lista: Pergunta[] = await respPerguntas.json();
-          return lista.map((p) => ({ ...p, tipoChecklist: tipo }));
-        }),
-      );
-      setPerguntas(listas.flat());
+      setPerguntas(await carregarPerguntas(turno, areasDiurno));
       setCarregandoPerguntas(false);
     } catch {
       setErro("Não foi possível iniciar a visita. Tente novamente.");
@@ -285,6 +382,7 @@ export default function VisitaForm() {
         body: JSON.stringify(body),
       });
       if (!resposta.ok) throw new Error();
+      gravarVisitaSalva(condominioId, null);
       setConcluida(true);
     } catch {
       setErro("Não foi possível concluir a visita. Tente novamente.");
@@ -405,6 +503,35 @@ export default function VisitaForm() {
         </div>
       ) : (
         <div className="px-5 py-5 space-y-6">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-3">
+            <p className="text-sm text-white">
+              {retomada ? "Continuando a visita de " : "Visita em andamento — "}
+              <span className="font-semibold">{supervisorNome.trim().split(" ")[0]}</span>
+              {iniciadaEm
+                ? `, iniciada às ${new Date(iniciadaEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+                : ""}
+              .
+            </p>
+            <p className="text-xs text-white/50 mt-1">
+              Pode fechar a página e ler o QR Code de novo: as respostas ficam salvas neste celular até você concluir.
+            </p>
+            {confirmandoDescarte ? (
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-xs text-white/70">Descartar e começar outra visita?</span>
+                <button type="button" onClick={descartarVisita} className="text-xs font-semibold text-[#FF3B3B]">
+                  Sim, descartar
+                </button>
+                <button type="button" onClick={() => setConfirmandoDescarte(false)} className="text-xs text-white/50">
+                  Não
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setConfirmandoDescarte(true)} className="text-xs text-white/50 underline mt-2">
+                Não é a sua visita? Começar uma nova
+              </button>
+            )}
+          </div>
+
           {carregandoPerguntas ? (
             <p className="text-sm text-white/50 text-center py-8">Carregando checklist...</p>
           ) : (

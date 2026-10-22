@@ -28,12 +28,16 @@ export default function SeletorCondominio({
   onChange,
   marginBottom = 20,
   extra,
+  opcaoTodos,
 }: {
   condominios: CondominioOpcao[];
   valor: string | null;
   onChange: (id: string) => void;
   marginBottom?: number;
   extra?: ReactNode; // botão opcional ao lado (ex.: excluir condomínio)
+  // Opcional: primeira opção "todos" (ex.: Dashboard de supervisão).
+  // Quando escolhida, onChange recebe "" e valor deve ser "".
+  opcaoTodos?: string;
 }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
@@ -41,6 +45,7 @@ export default function SeletorCondominio({
   const buscaRef = useRef<HTMLInputElement>(null);
 
   const selecionado = condominios.find((c) => c.id === valor);
+  const todosSelecionado = !!opcaoTodos && valor === "";
 
   const filtrados = useMemo(() => {
     const termo = normalizarBusca(busca);
@@ -98,7 +103,7 @@ export default function SeletorCondominio({
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <span style={{ fontSize: 10, color: CORES.textoMuted, letterSpacing: 0.4 }}>CONDOMÍNIO</span>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {selecionado ? selecionado.nome.trim() : "Selecione um condomínio"}
+              {selecionado ? selecionado.nome.trim() : todosSelecionado ? opcaoTodos : "Selecione um condomínio"}
             </span>
           </span>
           <span style={{ color: CORES.textoSecundario, fontSize: 11 }}>{aberto ? "▲" : "▼"}</span>
@@ -145,6 +150,29 @@ export default function SeletorCondominio({
               />
             </div>
             <div style={{ maxHeight: 280, overflowY: "auto" }}>
+              {opcaoTodos && !busca.trim() && (
+                <button
+                  type="button"
+                  onClick={() => escolher("")}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "9px 14px",
+                    background: todosSelecionado ? CORES.vermelhoSuave : "transparent",
+                    color: todosSelecionado ? "#fff" : "#ccc",
+                    border: "none",
+                    borderLeft: todosSelecionado ? `3px solid ${CORES.vermelho}` : "3px solid transparent",
+                    borderBottom: `1px solid ${CORES.bordaSuave}`,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    fontFamily: FONTES.corpo,
+                    cursor: "pointer",
+                  }}
+                >
+                  {opcaoTodos}
+                </button>
+              )}
               {filtrados.length === 0 ? (
                 <p style={{ fontSize: 12, color: CORES.textoMuted, padding: "10px 14px", margin: 0 }}>
                   Nenhum condomínio encontrado.

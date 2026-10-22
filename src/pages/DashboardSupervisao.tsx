@@ -6,14 +6,18 @@ import { CORES, FONTES, estiloCartaoVidro } from "../theme";
 import SeletorCondominio from "../components/SeletorCondominio";
 
 // Painel de indicadores do fluxo de Supervisão (visitas operacionais)
-// — separado de propósito do Dashboard de Limpeza. Números e
-// gráficos vêm de GET /api/visitas/dashboard?condominioId=...
+// — separado de propósito do Dashboard de Limpeza. Uma aba por turno
+// (Diurno = Portaria e Zeladoria; Limpeza; Noturno = Portaria). Números
+// e gráficos vêm de GET /api/visitas/dashboard?turno=...&condominioId=...
+// (condominioId vazio = todos os condomínios).
 
-const TURNO_LABEL: Record<string, string> = {
-  DIURNO: "Diurno",
-  NOTURNO: "Noturno",
-  LIMPEZA: "Limpeza",
-};
+type Turno = "DIURNO" | "LIMPEZA" | "NOTURNO";
+
+const ABAS: { turno: Turno; titulo: string; subtitulo: string }[] = [
+  { turno: "DIURNO", titulo: "☀️ Diurno", subtitulo: "Portaria e Zeladoria" },
+  { turno: "LIMPEZA", titulo: "🧹 Limpeza", subtitulo: "Supervisão de limpeza" },
+  { turno: "NOTURNO", titulo: "🌙 Noturno", subtitulo: "Portaria" },
+];
 
 interface Indicadores {
   total: number;
@@ -23,6 +27,69 @@ interface Indicadores {
   tempoMedioMinutos: number | null;
   graficoSemanal: { rotulo: string; quantidade: number }[];
   graficoMensal: { rotulo: string; quantidade: number }[];
+  porSupervisor?: { nome: string; quantidade: number; concluidas: number }[];
+  rankingCondominios?: { condominioId: string; nome: string; quantidade: number }[];
+}
+
+// Lista com barra proporcional — usada no ranking e nos supervisores.
+function ListaBarras({
+  itens,
+  vazio,
+  limite,
+}: {
+  itens: { chave: string; nome: string; quantidade: number; detalhe?: string; destaque?: boolean }[];
+  vazio: string;
+  limite?: number;
+}) {
+  const [mostrarTodos, setMostrarTodos] = useState(false);
+  if (itens.length === 0) return <p style={{ fontSize: 12, color: CORES.textoMuted, margin: 0 }}>{vazio}</p>;
+  const maximo = Math.max(1, ...itens.map((i) => i.quantidade));
+  const visiveis = limite && !mostrarTodos ? itens.slice(0, limite) : itens;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {visiveis.map((item, i) => (
+        <div key={item.chave}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, marginBottom: 4 }}>
+            <span
+              style={{
+                color: item.destaque ? CORES.texto : CORES.textoSecundario,
+                fontWeight: item.destaque ? 700 : 400,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontFamily: FONTES.corpo,
+              }}
+            >
+              {i + 1}. {item.nome}
+            </span>
+            <span style={{ color: CORES.texto, fontWeight: 600, whiteSpace: "nowrap" }}>
+              {item.quantidade}
+              {item.detalhe && <span style={{ color: CORES.textoMuted, fontWeight: 400 }}> · {item.detalhe}</span>}
+            </span>
+          </div>
+          <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.06)" }}>
+            <div
+              style={{
+                height: 6,
+                borderRadius: 3,
+                width: `${(item.quantidade / maximo) * 100}%`,
+                background: item.quantidade === 0 ? "transparent" : "#60a5fa",
+              }}
+            />
+          </div>
+        </div>
+      ))}
+      {limite && itens.length > limite && (
+        <button
+          type="button"
+          onClick={() => setMostrarTodos((m) => !m)}
+          style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 12, cursor: "pointer", padding: 0, textAlign: "left", fontFamily: FONTES.corpo }}
+        >
+          {mostrarTodos ? "Mostrar menos" : `Ver todos (${itens.length})`}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function Cartao({ rotulo, valor, destaque }: { rotulo: string; valor: string | number; destaque?: boolean }) {
@@ -57,25 +124,41 @@ function PainelCard({ titulo, children }: { titulo: string; children: React.Reac
 export default function DashboardSupervisao() {
   const [dados, setDados] = useState<Indicadores | null>(null);
   const [condominios, setCondominios] = useState<{ id: string; nome: string }[]>([]);
-  const [condominioId, setCondominioId] = useState<string | null>(null);
+  // "" = todos os condomínios (padrão, pra ver o ranking geral do turno).
+  const [condominioId, setCondominioId] = useState<string>("");
   const [condominiosCarregados, setCondominiosCarregados] = useState(false);
+  const [turno, setTurno] = useState<Turno>("DIURNO");
+  const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/api/condominios`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((lista) => {
         setCondominios(lista);
-        if (lista.length > 0) setCondominioId(lista[0].id);
         setCondominiosCarregados(true);
       });
   }, []);
 
   useEffect(() => {
-    if (!condominioId) return;
-    fetch(`${API_URL}/api/visitas/dashboard?condominioId=${condominioId}`, { headers: authHeaders() })
+    if (!condominiosCarregados || condominios.length === 0) return;
+    let cancelado = false;
+    setCarregando(true);
+    const params = new URLSearchParams({ turno });
+    if (condominioId) params.set("condominioId", condominioId);
+    fetch(`${API_URL}/api/visitas/dashboard?${params.toString()}`, { headers: authHeaders() })
       .then((r) => r.json())
-      .then(setDados);
-  }, [condominioId]);
+      .then((d) => {
+        if (!cancelado) setDados(d);
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [condominioId, turno, condominiosCarregados, condominios.length]);
+
+  const abaAtual = ABAS.find((a) => a.turno === turno)!;
 
   if (condominiosCarregados && condominios.length === 0) {
     return (
@@ -121,12 +204,45 @@ export default function DashboardSupervisao() {
             </span>
           </div>
           <p style={{ fontSize: 13, color: CORES.textoSecundario, margin: "0 0 16px", fontFamily: FONTES.corpo }}>
-            Visão geral das rondas — separado do Dashboard de Limpeza.
+            Visão geral das rondas por turno — separado do Dashboard de Limpeza.
           </p>
 
-          {condominios.length > 1 && (
-            <SeletorCondominio condominios={condominios} valor={condominioId} onChange={setCondominioId} marginBottom={24} />
-          )}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            {ABAS.map((aba) => {
+              const ativa = aba.turno === turno;
+              return (
+                <button
+                  key={aba.turno}
+                  type="button"
+                  onClick={() => setTurno(aba.turno)}
+                  style={{
+                    flex: "1 1 140px",
+                    textAlign: "left",
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    background: ativa ? "rgba(96,165,250,0.14)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${ativa ? "rgba(96,165,250,0.5)" : CORES.borda}`,
+                    color: ativa ? CORES.texto : CORES.textoSecundario,
+                    fontFamily: FONTES.corpo,
+                  }}
+                >
+                  <span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{aba.titulo}</span>
+                  <span style={{ display: "block", fontSize: 11, color: CORES.textoMuted, marginTop: 2 }}>{aba.subtitulo}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <SeletorCondominio
+            condominios={condominios}
+            valor={condominioId}
+            onChange={setCondominioId}
+            opcaoTodos="Todos os condomínios"
+            marginBottom={24}
+          />
+
+          <div style={{ opacity: carregando ? 0.5 : 1, transition: "opacity 0.15s" }}>
 
           <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
             <Cartao rotulo="Total de visitas" valor={dados.total} />
@@ -135,7 +251,7 @@ export default function DashboardSupervisao() {
             <Cartao rotulo="Tempo médio" valor={dados.tempoMedioMinutos !== null ? `${dados.tempoMedioMinutos} min` : "—"} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 16 }}>
             <PainelCard titulo="Últimas 8 semanas">
               <ResponsiveContainer width="100%" height={160}>
                 <BarChart data={dados.graficoSemanal}>
@@ -161,16 +277,34 @@ export default function DashboardSupervisao() {
             </PainelCard>
           </div>
 
-          <PainelCard titulo="Por turno">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {Object.entries(dados.porTurno).map(([turno, quantidade]) => (
-                <div key={turno} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: CORES.textoSecundario }}>
-                  <span>{TURNO_LABEL[turno] ?? turno}</span>
-                  <span style={{ color: CORES.texto, fontWeight: 600 }}>{quantidade}</span>
-                </div>
-              ))}
-            </div>
-          </PainelCard>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+            <PainelCard titulo={`Ranking de condomínios — ${abaAtual.titulo.replace(/^\S+\s/, "")}`}>
+              <ListaBarras
+                limite={10}
+                vazio="Nenhum condomínio cadastrado."
+                itens={(dados.rankingCondominios ?? []).map((c) => ({
+                  chave: c.condominioId,
+                  nome: c.nome,
+                  quantidade: c.quantidade,
+                  destaque: c.condominioId === condominioId,
+                }))}
+              />
+            </PainelCard>
+
+            <PainelCard titulo="Visitas por supervisor">
+              <ListaBarras
+                limite={10}
+                vazio="Nenhuma visita neste turno."
+                itens={(dados.porSupervisor ?? []).map((sup) => ({
+                  chave: sup.nome,
+                  nome: sup.nome,
+                  quantidade: sup.quantidade,
+                  detalhe: `${sup.concluidas} concluída${sup.concluidas === 1 ? "" : "s"}`,
+                }))}
+              />
+            </PainelCard>
+          </div>
+          </div>
         </div>
       </div>
     </div>
