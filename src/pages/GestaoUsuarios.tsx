@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
+import { apiEstoque, SETOR_LABEL, type Setor, type UsuarioEstoque } from "../lib/estoque";
 
 // Tela administrativa — só o Administrador Master enxerga essa opção
 // no menu. Lista os logins existentes, permite criar novos e editar
 // os existentes (dados, perfil, condomínios liberados, senha nova,
 // desativar/reativar e excluir).
 
-type Perfil = "ADMIN_MASTER" | "ADMIN_CONDOMINIO" | "SUPERVISOR" | "FUNCIONARIO" | "VISUALIZADOR";
+type Perfil = "ADMIN_MASTER" | "ADMIN_CONDOMINIO" | "SUPERVISOR" | "FUNCIONARIO" | "VISUALIZADOR" | "ESTOQUE";
 
 const PERFIL_LABEL: Record<Perfil, string> = {
   ADMIN_MASTER: "Administrador master",
@@ -16,6 +17,7 @@ const PERFIL_LABEL: Record<Perfil, string> = {
   SUPERVISOR: "Supervisor",
   FUNCIONARIO: "Funcionário",
   VISUALIZADOR: "Visualizador",
+  ESTOQUE: "Responsável pelo estoque",
 };
 
 // Só esses dois perfis podem ser escolhidos ao CRIAR um usuário novo
@@ -23,7 +25,47 @@ const PERFIL_LABEL: Record<Perfil, string> = {
 // descontinuados por decisão do cliente, mas o rótulo acima continua
 // completo pra exibir corretamente qualquer usuário antigo que ainda
 // tenha um desses perfis no banco.
-const PERFIS_CRIAVEIS: Perfil[] = ["ADMIN_MASTER", "SUPERVISOR"];
+const PERFIS_CRIAVEIS: Perfil[] = ["ADMIN_MASTER", "SUPERVISOR", "ESTOQUE"];
+
+// Master e Responsável pelo estoque não ficam presos a condomínios.
+const perfilUsaCondominios = (p: Perfil) => p !== "ADMIN_MASTER" && p !== "ESTOQUE";
+
+// Setor (público/privado) usado pelo Estoque de uniformes. Fica numa
+// rota do módulo de estoque; se ela não responder, a tela funciona
+// normalmente, só sem o campo de setor.
+type MapaSetores = Record<string, Setor | null> | null;
+
+async function salvarSetor(usuarioId: string, setor: Setor | null) {
+  await apiEstoque("PATCH", `/usuarios/${usuarioId}/setor`, { setor });
+}
+
+function EscolhaSetor({ valor, onChange }: { valor: Setor | null; onChange: (s: Setor | null) => void }) {
+  const opcoes: [Setor | null, string][] = [[null, "Sem setor"], ["PUBLICO", "Público"], ["PRIVADO", "Privado"]];
+  return (
+    <>
+      <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 6px" }}>Setor (usado no estoque de uniformes)</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+        {opcoes.map(([v, rotulo]) => (
+          <button
+            key={rotulo}
+            onClick={() => onChange(v)}
+            style={{
+              fontSize: 12,
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: valor === v ? "none" : "1px solid rgba(255,255,255,0.08)",
+              background: valor === v ? "#FF3B3B" : "transparent",
+              color: valor === v ? "#fff" : "#aaa",
+              cursor: "pointer",
+            }}
+          >
+            {rotulo}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
 
 interface Condominio {
   id: string;
@@ -51,6 +93,8 @@ export default function GestaoUsuarios() {
   const [senha, setSenha] = useState("");
   const [perfil, setPerfil] = useState<Perfil>("SUPERVISOR");
   const [condominioIds, setCondominioIds] = useState<string[]>([]);
+  const [setor, setSetor] = useState<Setor | null>(null);
+  const [setores, setSetores] = useState<MapaSetores>(null);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -63,6 +107,12 @@ export default function GestaoUsuarios() {
     ]);
     setUsuarios(await resUsuarios.json());
     setCondominios(await resCondominios.json());
+    try {
+      const lista = await apiEstoque<UsuarioEstoque[]>("GET", "/usuarios");
+      setSetores(Object.fromEntries(lista.map((x) => [x.id, x.setor])));
+    } catch {
+      setSetores(null);
+    }
     setCarregando(false);
   };
 
@@ -71,7 +121,7 @@ export default function GestaoUsuarios() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const precisaCondominio = perfil !== "ADMIN_MASTER";
+  const precisaCondominio = perfilUsaCondominios(perfil);
   const podeSalvar = nome.trim() && email.trim() && senha.length >= 8 && (!precisaCondominio || condominioIds.length > 0);
 
   const criarUsuario = async () => {
@@ -88,11 +138,22 @@ export default function GestaoUsuarios() {
         const dados = await resposta.json();
         throw new Error(dados.message ?? "Não foi possível criar o usuário.");
       }
+      if (setor && setores !== null) {
+        const criado = await resposta.json().catch(() => null);
+        if (criado?.id) {
+          try {
+            await salvarSetor(criado.id, setor);
+          } catch {
+            // usuário criado; o setor pode ser definido depois em "Editar"
+          }
+        }
+      }
       setNome("");
       setEmail("");
       setSenha("");
       setPerfil("SUPERVISOR");
       setCondominioIds([]);
+      setSetor(null);
       setMostrarForm(false);
       await carregar();
     } catch (e: any) {
@@ -194,6 +255,8 @@ export default function GestaoUsuarios() {
               </>
             )}
 
+            {setores !== null && <EscolhaSetor valor={setor} onChange={setSetor} />}
+
             {erro && <p style={{ fontSize: 12, color: "#f87171", margin: "0 0 10px" }}>{erro}</p>}
 
             <button
@@ -211,7 +274,7 @@ export default function GestaoUsuarios() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {usuarios.map((u) => (
-              <CartaoUsuario key={u.id} usuario={u} condominios={condominios} aoAlterar={carregar} />
+              <CartaoUsuario key={u.id} usuario={u} condominios={condominios} setor={setores ? setores[u.id] ?? null : undefined} aoAlterar={carregar} />
             ))}
           </div>
         )}
@@ -252,7 +315,18 @@ async function lerErro(resposta: Response, padrao: string) {
 // Um usuário da lista — fechado mostra o resumo; "Editar" abre o
 // formulário com nome, e-mail, telefone, perfil, condomínios liberados
 // e senha nova (opcional). Também tem Desativar/Reativar e Excluir.
-function CartaoUsuario({ usuario: u, condominios, aoAlterar }: { usuario: Usuario; condominios: Condominio[]; aoAlterar: () => Promise<void> }) {
+// `setorAtual` undefined = setor indisponível (rota do estoque não respondeu).
+function CartaoUsuario({
+  usuario: u,
+  condominios,
+  setor: setorAtual,
+  aoAlterar,
+}: {
+  usuario: Usuario;
+  condominios: Condominio[];
+  setor: Setor | null | undefined;
+  aoAlterar: () => Promise<void>;
+}) {
   const [editando, setEditando] = useState(false);
   const [nome, setNome] = useState(u.nome);
   const [email, setEmail] = useState(u.email);
@@ -260,6 +334,7 @@ function CartaoUsuario({ usuario: u, condominios, aoAlterar }: { usuario: Usuari
   const [perfil, setPerfil] = useState<Perfil>(u.perfil);
   const [condominioIds, setCondominioIds] = useState<string[]>(u.condominios.map((c) => c.condominio.id));
   const [novaSenha, setNovaSenha] = useState("");
+  const [setor, setSetor] = useState<Setor | null>(setorAtual ?? null);
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -267,7 +342,7 @@ function CartaoUsuario({ usuario: u, condominios, aoAlterar }: { usuario: Usuari
   // Mostra os perfis que podem ser criados + o perfil atual (caso seja
   // um perfil antigo), pra não trocar o perfil de alguém sem querer.
   const perfisDisponiveis = PERFIS_CRIAVEIS.includes(u.perfil) ? PERFIS_CRIAVEIS : [...PERFIS_CRIAVEIS, u.perfil];
-  const precisaCondominio = perfil !== "ADMIN_MASTER";
+  const precisaCondominio = perfilUsaCondominios(perfil);
   const podeSalvar =
     nome.trim() && email.trim() && (!novaSenha || novaSenha.length >= 8) && (!precisaCondominio || condominioIds.length > 0);
 
@@ -278,12 +353,13 @@ function CartaoUsuario({ usuario: u, condominios, aoAlterar }: { usuario: Usuari
     setPerfil(u.perfil);
     setCondominioIds(u.condominios.map((c) => c.condominio.id));
     setNovaSenha("");
+    setSetor(setorAtual ?? null);
     setErro(null);
     setConfirmarExclusao(false);
     setEditando(true);
   };
 
-  const enviar = async (metodo: string, caminho: string, corpo?: object) => {
+  const enviar = async (metodo: string, caminho: string, corpo?: object, depois?: () => Promise<void>) => {
     setOcupado(true);
     setErro(null);
     try {
@@ -293,6 +369,7 @@ function CartaoUsuario({ usuario: u, condominios, aoAlterar }: { usuario: Usuari
         body: corpo ? JSON.stringify(corpo) : undefined,
       });
       if (!resposta.ok) throw new Error(await lerErro(resposta, "Não foi possível salvar."));
+      if (depois) await depois();
       await aoAlterar();
       return true;
     } catch (e: any) {
@@ -313,7 +390,7 @@ function CartaoUsuario({ usuario: u, condominios, aoAlterar }: { usuario: Usuari
       // Admin Master enxerga tudo — os vínculos ficam vazios.
       condominioIds: precisaCondominio ? condominioIds : [],
       ...(novaSenha ? { senha: novaSenha } : {}),
-    });
+    }, setorAtual !== undefined && setor !== setorAtual ? () => salvarSetor(u.id, setor) : undefined);
     if (ok) setEditando(false);
   };
 
@@ -333,6 +410,7 @@ function CartaoUsuario({ usuario: u, condominios, aoAlterar }: { usuario: Usuari
           </p>
           <p style={{ fontSize: 11, color: "#666", margin: "4px 0 0" }}>
             {PERFIL_LABEL[u.perfil]}
+            {setorAtual && ` · setor ${SETOR_LABEL[setorAtual].toLowerCase()}`}
             {u.perfil === "ADMIN_MASTER"
               ? " · todos os condomínios"
               : u.condominios.length > 0 && ` · ${u.condominios.map((c) => c.condominio.nome).join(", ")}`}
@@ -412,8 +490,12 @@ function CartaoUsuario({ usuario: u, condominios, aoAlterar }: { usuario: Usuari
               )}
             </>
           ) : (
-            <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px" }}>O Administrador master acessa todos os condomínios.</p>
+            <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 12px" }}>
+              {perfil === "ESTOQUE" ? "O Responsável pelo estoque acessa só o Estoque de uniformes." : "O Administrador master acessa todos os condomínios."}
+            </p>
           )}
+
+          {setorAtual !== undefined && <EscolhaSetor valor={setor} onChange={setSetor} />}
 
           {erro && <p style={{ fontSize: 12, color: "#f87171", margin: "0 0 10px" }}>{erro}</p>}
 

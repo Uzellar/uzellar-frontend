@@ -31,6 +31,17 @@ const GRUPOS_ADMIN: Grupo[] = [
     ],
   },
   {
+    titulo: "Estoque de uniformes",
+    itens: [
+      { rota: "/estoque/uniformes", rotulo: "Uniformes e saldo" },
+      { rota: "/estoque/entradas", rotulo: "Entradas" },
+      { rota: "/estoque/saidas", rotulo: "Saídas" },
+      { rota: "/estoque/historico", rotulo: "Histórico de movimentações" },
+      { rota: "/estoque/fornecedores", rotulo: "Fornecedores" },
+      { rota: "/estoque/contratos", rotulo: "Contratos" },
+    ],
+  },
+  {
     titulo: "Cadastros",
     itens: [
       { rota: "/condominios", rotulo: "Cadastro de condomínios" },
@@ -46,6 +57,9 @@ const GRUPOS_SUPERVISOR: Grupo[] = [
   { titulo: "Supervisão", itens: [{ rota: "/relatorio-visitas", rotulo: "Relatório de visitas" }] },
 ];
 
+// Responsável pelo estoque: só o módulo de Estoque de uniformes.
+const GRUPOS_ESTOQUE: Grupo[] = GRUPOS_ADMIN.filter((g) => g.titulo === "Estoque de uniformes");
+
 // Perfis antigos (Admin do Condomínio, Funcionário, Visualizador).
 const GRUPOS_BASICOS: Grupo[] = [
   { titulo: "Condôminos", itens: [{ rota: "/solicitacoes", rotulo: "Solicitações de condômino" }] },
@@ -54,6 +68,7 @@ const GRUPOS_BASICOS: Grupo[] = [
 function gruposPorPerfil(): Grupo[] {
   if (ehAdminMaster()) return GRUPOS_ADMIN;
   if (perfilEstaEm("SUPERVISOR")) return GRUPOS_SUPERVISOR;
+  if (perfilEstaEm("ESTOQUE")) return GRUPOS_ESTOQUE;
   return GRUPOS_BASICOS;
 }
 
@@ -148,7 +163,8 @@ export default function NavAdmin() {
   const navegacao = (
     <>
       <nav style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-        <LinkMenu item={{ rota: "/dashboard", rotulo: "Dashboard" }} ativo={pathname === "/dashboard"} />
+        {/* O Dashboard é dos condomínios — o Responsável pelo estoque não usa. */}
+        {!perfilEstaEm("ESTOQUE") && <LinkMenu item={{ rota: "/dashboard", rotulo: "Dashboard" }} ativo={pathname === "/dashboard"} />}
 
         {grupos.map((grupo) => {
           // O grupo da tela atual fica sempre aberto, mesmo que a pessoa

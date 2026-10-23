@@ -12,6 +12,10 @@ import Solicitacoes from "./pages/Solicitacoes";
 import Relatorios from "./pages/Relatorios";
 import RelatorioVisitas from "./pages/RelatorioVisitas";
 import VisitaForm from "./pages/VisitaForm";
+import EstoqueUniformes from "./pages/EstoqueUniformes";
+import EstoqueMovimentar from "./pages/EstoqueMovimentar";
+import EstoqueHistorico from "./pages/EstoqueHistorico";
+import EstoqueCadastros from "./pages/EstoqueCadastros";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
 // houver token salvo, manda de volta para a tela de login.
@@ -38,6 +42,8 @@ function RotaComPerfil({ perfis, children }: { perfis: string[]; children: JSX.E
   if (!perfilEstaEm(...perfis)) return <Navigate to="/dashboard" replace />;
   return children;
 }
+
+const PERFIS_ESTOQUE = ["ADMIN_MASTER", "ESTOQUE"];
 
 export default function App() {
   return (
@@ -120,6 +126,56 @@ export default function App() {
           element={
             <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
               <RelatorioVisitas />
+            </RotaComPerfil>
+          }
+        />
+
+        {/* Estoque de uniformes — Admin Master e Responsável pelo estoque */}
+        <Route
+          path="/estoque/uniformes"
+          element={
+            <RotaComPerfil perfis={PERFIS_ESTOQUE}>
+              <EstoqueUniformes />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/estoque/entradas"
+          element={
+            <RotaComPerfil perfis={PERFIS_ESTOQUE}>
+              <EstoqueMovimentar key="ENTRADA" tipo="ENTRADA" />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/estoque/saidas"
+          element={
+            <RotaComPerfil perfis={PERFIS_ESTOQUE}>
+              <EstoqueMovimentar key="SAIDA" tipo="SAIDA" />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/estoque/historico"
+          element={
+            <RotaComPerfil perfis={PERFIS_ESTOQUE}>
+              <EstoqueHistorico />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/estoque/fornecedores"
+          element={
+            <RotaComPerfil perfis={PERFIS_ESTOQUE}>
+              <EstoqueCadastros key="fornecedores" tipo="fornecedores" />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/estoque/contratos"
+          element={
+            <RotaComPerfil perfis={PERFIS_ESTOQUE}>
+              <EstoqueCadastros key="contratos" tipo="contratos" />
             </RotaComPerfil>
           }
         />

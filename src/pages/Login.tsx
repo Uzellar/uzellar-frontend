@@ -24,7 +24,8 @@ export default function Login() {
       const dados = await resposta.json();
       setToken(dados.token);
       setPerfil(dados.usuario?.perfil ?? "");
-      navigate("/dashboard");
+      // O Responsável pelo estoque entra direto no módulo de estoque.
+      navigate(dados.usuario?.perfil === "ESTOQUE" ? "/estoque/uniformes" : "/dashboard");
     } catch {
       setErro("E-mail ou senha inválidos.");
     } finally {
