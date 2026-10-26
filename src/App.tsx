@@ -16,6 +16,9 @@ import EstoqueUniformes from "./pages/EstoqueUniformes";
 import EstoqueMovimentar from "./pages/EstoqueMovimentar";
 import EstoqueHistorico from "./pages/EstoqueHistorico";
 import EstoqueCadastros from "./pages/EstoqueCadastros";
+import EstoqueRequisicoes from "./pages/EstoqueRequisicoes";
+import EstoqueRequisicaoNova from "./pages/EstoqueRequisicaoNova";
+import EstoqueRequisicaoDetalhe from "./pages/EstoqueRequisicaoDetalhe";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
 // houver token salvo, manda de volta para a tela de login.
@@ -44,6 +47,8 @@ function RotaComPerfil({ perfis, children }: { perfis: string[]; children: JSX.E
 }
 
 const PERFIS_ESTOQUE = ["ADMIN_MASTER", "ESTOQUE"];
+// Requisições: o Supervisor também acessa (só as próprias).
+const PERFIS_REQUISICOES = ["ADMIN_MASTER", "ESTOQUE", "SUPERVISOR"];
 
 export default function App() {
   return (
@@ -176,6 +181,32 @@ export default function App() {
           element={
             <RotaComPerfil perfis={PERFIS_ESTOQUE}>
               <EstoqueCadastros key="contratos" tipo="contratos" />
+            </RotaComPerfil>
+          }
+        />
+
+        {/* Requisições de uniforme (Fase 2) — "nova" antes de ":id" */}
+        <Route
+          path="/estoque/requisicoes"
+          element={
+            <RotaComPerfil perfis={PERFIS_REQUISICOES}>
+              <EstoqueRequisicoes />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/estoque/requisicoes/nova"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <EstoqueRequisicaoNova />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/estoque/requisicoes/:id"
+          element={
+            <RotaComPerfil perfis={PERFIS_REQUISICOES}>
+              <EstoqueRequisicaoDetalhe />
             </RotaComPerfil>
           }
         />

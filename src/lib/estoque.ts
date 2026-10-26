@@ -206,3 +206,101 @@ export const ROTULO_TIPO: Record<TipoMovimentacao, string> = {
   SAIDA: "Saída",
   ESTORNO: "Estorno",
 };
+
+// ---------------- Requisições (Fase 2) ----------------
+
+export type StatusRequisicao =
+  | "PENDENTE"
+  | "EM_SEPARACAO"
+  | "PARCIALMENTE_ATENDIDA"
+  | "AGUARDANDO_REPOSICAO"
+  | "CONCLUIDA"
+  | "CANCELADA";
+
+export const STATUS_REQUISICAO_LABEL: Record<StatusRequisicao, string> = {
+  PENDENTE: "Pendente",
+  EM_SEPARACAO: "Em separação",
+  PARCIALMENTE_ATENDIDA: "Parcialmente atendida",
+  AGUARDANDO_REPOSICAO: "Aguardando reposição",
+  CONCLUIDA: "Concluída",
+  CANCELADA: "Cancelada",
+};
+
+export const COR_STATUS_REQUISICAO: Record<StatusRequisicao, string> = {
+  PENDENTE: "#60a5fa",
+  EM_SEPARACAO: "#f59e0b",
+  PARCIALMENTE_ATENDIDA: "#fb923c",
+  AGUARDANDO_REPOSICAO: "#f87171",
+  CONCLUIDA: "#22c55e",
+  CANCELADA: "#8a8a8a",
+};
+
+export const STATUS_ABERTOS: StatusRequisicao[] = ["PENDENTE", "EM_SEPARACAO", "PARCIALMENTE_ATENDIDA", "AGUARDANDO_REPOSICAO"];
+
+export const ACAO_REQUISICAO_LABEL: Record<string, string> = {
+  CRIADA: "Requisição criada",
+  SEPARACAO: "Separação iniciada",
+  ENTREGA: "Entrega registrada",
+  AGUARDANDO_REPOSICAO: "Marcada como aguardando reposição",
+  CANCELADA: "Requisição cancelada",
+  ESTORNO_ENTREGA: "Entrega estornada",
+};
+
+// Opções para montar a requisição. "saldo" só vem para Master/estoque.
+export interface CatalogoRequisicao {
+  meuSetor: Setor | null;
+  contratos: { id: string; nome: string; codigo: string | null; setor: Setor }[];
+  uniformes: { id: string; nome: string; tipo: string; categoria: string | null; tamanho: string; disponivel: boolean; saldo?: number }[];
+}
+
+export interface ItemRequisicao {
+  id: string;
+  qtdSolicitada: number;
+  qtdEntregue: number;
+  falta: number;
+  observacao: string | null;
+  disponivel: boolean;
+  uniforme: { id: string; nome: string; tipo: string; tamanho: string; saldo?: number };
+}
+
+export interface Requisicao {
+  id: string;
+  numero: number;
+  status: StatusRequisicao;
+  setor: Setor;
+  observacao: string | null;
+  motivoCancelamento: string | null;
+  criadoEm: string;
+  atualizadoEm: string;
+  concluidaEm: string | null;
+  canceladaEm: string | null;
+  solicitante: { id: string; nome: string };
+  contrato: { id: string; nome: string; codigo: string | null; setor: Setor };
+  itens: ItemRequisicao[];
+  totalSolicitado: number;
+  totalEntregue: number;
+  podeEntregarAgora: boolean;
+}
+
+export interface RequisicaoDetalhe extends Requisicao {
+  historico: {
+    id: string;
+    acao: string;
+    statusAnterior: StatusRequisicao | null;
+    statusNovo: StatusRequisicao | null;
+    observacao: string | null;
+    criadoEm: string;
+    usuario: { id: string; nome: string } | null;
+  }[];
+  entregas: {
+    id: string;
+    tipo: TipoMovimentacao;
+    quantidade: number;
+    data: string;
+    criadoEm: string;
+    observacao: string | null;
+    requisicaoItemId: string | null;
+    registradoPor: { id: string; nome: string };
+    uniforme: { nome: string; tamanho: string };
+  }[];
+}

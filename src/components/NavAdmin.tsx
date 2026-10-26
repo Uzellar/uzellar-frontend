@@ -33,6 +33,7 @@ const GRUPOS_ADMIN: Grupo[] = [
   {
     titulo: "Estoque de uniformes",
     itens: [
+      { rota: "/estoque/requisicoes", rotulo: "Requisições" },
       { rota: "/estoque/uniformes", rotulo: "Uniformes e saldo" },
       { rota: "/estoque/entradas", rotulo: "Entradas" },
       { rota: "/estoque/saidas", rotulo: "Saídas" },
@@ -55,6 +56,7 @@ const GRUPOS_ADMIN: Grupo[] = [
 const GRUPOS_SUPERVISOR: Grupo[] = [
   { titulo: "Condôminos", itens: [{ rota: "/solicitacoes", rotulo: "Solicitações de condômino" }] },
   { titulo: "Supervisão", itens: [{ rota: "/relatorio-visitas", rotulo: "Relatório de visitas" }] },
+  { titulo: "Uniformes", itens: [{ rota: "/estoque/requisicoes", rotulo: "Requisições de uniforme" }] },
 ];
 
 // Responsável pelo estoque: só o módulo de Estoque de uniformes.
@@ -199,7 +201,7 @@ export default function NavAdmin() {
               {aberto && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
                   {grupo.itens.map((item) => (
-                    <LinkMenu key={item.rota} item={item} ativo={pathname === item.rota} recuo />
+                    <LinkMenu key={item.rota} item={item} ativo={pathname === item.rota || pathname.startsWith(item.rota + "/")} recuo />
                   ))}
                 </div>
               )}
