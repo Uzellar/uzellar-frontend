@@ -9,6 +9,14 @@ export type TipoMovimentacao = "ENTRADA" | "SAIDA" | "ESTORNO";
 
 export const SETOR_LABEL: Record<Setor, string> = { PUBLICO: "Público", PRIVADO: "Privado" };
 
+// Motivo da requisição de uniforme (11/2026).
+export type MotivoRequisicao = "ADMISSAO" | "TROCA_DESGASTE" | "TROCA_CONTRATO";
+export const MOTIVO_REQUISICAO_LABEL: Record<MotivoRequisicao, string> = {
+  ADMISSAO: "Admissão",
+  TROCA_DESGASTE: "Troca por desgaste",
+  TROCA_CONTRATO: "Troca do contrato",
+};
+
 export interface Fornecedor {
   id: string;
   nome: string;
@@ -268,6 +276,7 @@ export interface Requisicao {
   numero: number;
   status: StatusRequisicao;
   setor: Setor;
+  motivo: MotivoRequisicao | null; // vazio nas requisições anteriores a 11/2026
   observacao: string | null;
   motivoCancelamento: string | null;
   criadoEm: string;

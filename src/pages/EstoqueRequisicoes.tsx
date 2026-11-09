@@ -5,6 +5,7 @@ import { perfilEstaEm } from "../lib/api";
 import {
   COR_STATUS_REQUISICAO,
   SETOR_LABEL,
+  MOTIVO_REQUISICAO_LABEL,
   STATUS_REQUISICAO_LABEL,
   apiEstoque,
   estiloBotaoPrincipal,
@@ -114,6 +115,7 @@ export default function EstoqueRequisicoes() {
               </div>
               <p style={{ fontSize: 13, margin: "6px 0 0" }}>
                 {r.contrato.nome} · {SETOR_LABEL[r.setor]}
+                {r.motivo && ` · ${MOTIVO_REQUISICAO_LABEL[r.motivo]}`}
                 {equipe && <span style={{ color: "#8a8a8a" }}> · pedido por {r.solicitante.nome}</span>}
               </p>
               <p style={{ fontSize: 12, color: "#aaa", margin: "4px 0 0" }}>

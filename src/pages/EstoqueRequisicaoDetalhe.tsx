@@ -6,6 +6,7 @@ import {
   ACAO_REQUISICAO_LABEL,
   COR_STATUS_REQUISICAO,
   SETOR_LABEL,
+  MOTIVO_REQUISICAO_LABEL,
   STATUS_ABERTOS,
   STATUS_REQUISICAO_LABEL,
   apiEstoque,
@@ -131,6 +132,7 @@ export default function EstoqueRequisicaoDetalhe() {
             <span style={estiloSelo(COR_STATUS_REQUISICAO[r.status])}>{STATUS_REQUISICAO_LABEL[r.status]}</span>
             <span style={{ fontSize: 13 }}>
               {r.contrato.nome}{r.contrato.codigo ? ` (${r.contrato.codigo})` : ""} · Setor {SETOR_LABEL[r.setor]}
+              {r.motivo && ` · Motivo: ${MOTIVO_REQUISICAO_LABEL[r.motivo]}`}
             </span>
           </div>
           <p style={{ fontSize: 12, color: "#8a8a8a", margin: "8px 0 0" }}>

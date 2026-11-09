@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EstoquePagina, { Campo } from "../components/EstoquePagina";
 import {
+  MOTIVO_REQUISICAO_LABEL,
   SETOR_LABEL,
   apiEstoque,
   estiloAreaTexto,
@@ -11,11 +12,15 @@ import {
   estiloCartao,
   lerNumero,
   type CatalogoRequisicao,
+  type MotivoRequisicao,
   type RequisicaoDetalhe,
+  type Setor,
 } from "../lib/estoque";
 
 // Nova requisição de uniformes (Supervisor e Admin Master).
-// Escolhe o contrato e monta a lista: uniforme → tamanho → quantidade.
+// Desde 11/2026: quem pede DIGITA o nome do contrato (não precisa estar
+// cadastrado; o sistema cria se for novo), escolhe o setor (Público ou
+// Privado) e o motivo, e monta a lista: uniforme → tamanho → quantidade.
 // O supervisor só vê se cada tamanho está disponível ou em falta.
 
 interface Linha {
@@ -27,8 +32,6 @@ interface Linha {
 
 let proximaChave = 1;
 const novaLinha = (): Linha => ({ chave: proximaChave++, nome: "", uniformeId: "", quantidade: "1" });
-
-const semAcento = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 // Ordem natural dos tamanhos: PP, P, M, G, GG... e números em ordem crescente.
 const ORDEM_TAMANHOS = ["PP", "P", "M", "G", "GG", "XG", "XGG", "EG", "EGG", "G1", "G2", "G3", "U", "UNICO", "ÚNICO"];
@@ -46,8 +49,9 @@ export default function EstoqueRequisicaoNova() {
   const navigate = useNavigate();
   const [catalogo, setCatalogo] = useState<CatalogoRequisicao | null>(null);
   const [erroCarga, setErroCarga] = useState<string | null>(null);
-  const [buscaContrato, setBuscaContrato] = useState("");
-  const [contratoId, setContratoId] = useState("");
+  const [contratoNome, setContratoNome] = useState("");
+  const [setor, setSetor] = useState<Setor | "">("");
+  const [motivo, setMotivo] = useState<MotivoRequisicao | "">("");
   const [linhas, setLinhas] = useState<Linha[]>([novaLinha()]);
   const [observacao, setObservacao] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -67,15 +71,12 @@ export default function EstoqueRequisicaoNova() {
     return mapa;
   }, [catalogo]);
 
-  const contratosFiltrados = useMemo(() => {
-    const t = semAcento(buscaContrato.trim());
-    const todos = catalogo?.contratos ?? [];
-    if (!t) return todos;
-    return todos.filter((c) => semAcento(`${c.nome} ${c.codigo ?? ""}`).includes(t) || c.id === contratoId);
-  }, [catalogo, buscaContrato, contratoId]);
-
-  const contrato = catalogo?.contratos.find((c) => c.id === contratoId);
-  const setorPrevisto = catalogo?.meuSetor ?? contrato?.setor ?? null;
+  // Ao digitar o nome de um contrato que já existe, já sugere o setor dele.
+  const escolherContrato = (nome: string) => {
+    setContratoNome(nome);
+    const existente = catalogo?.contratos.find((c) => c.nome.trim().toLowerCase() === nome.trim().toLowerCase());
+    if (existente && !setor) setSetor(existente.setor);
+  };
 
   const mudar = (chave: number, campos: Partial<Linha>) =>
     setLinhas((ls) => ls.map((l) => (l.chave === chave ? { ...l, ...campos } : l)));
@@ -83,7 +84,9 @@ export default function EstoqueRequisicaoNova() {
   const enviar = async () => {
     if (salvando) return;
     setErro(null);
-    if (!contratoId) return setErro("Escolha o contrato de destino.");
+    if (!contratoNome.trim()) return setErro("Informe o nome do contrato.");
+    if (!setor) return setErro("Escolha o setor: Público ou Privado.");
+    if (!motivo) return setErro("Escolha o motivo da requisição.");
     const preenchidas = linhas.filter((l) => l.nome || l.uniformeId);
     if (preenchidas.length === 0) return setErro("Adicione pelo menos um uniforme.");
     const itens: { uniformeId: string; quantidade: number }[] = [];
@@ -100,7 +103,9 @@ export default function EstoqueRequisicaoNova() {
     setSalvando(true);
     try {
       const r = await apiEstoque<RequisicaoDetalhe>("POST", "/requisicoes", {
-        contratoId,
+        contratoNome: contratoNome.trim(),
+        setor,
+        motivo,
         itens,
         observacao: observacao.trim() || undefined,
       });
@@ -117,36 +122,74 @@ export default function EstoqueRequisicaoNova() {
         <p style={{ fontSize: 13, color: "#f87171" }}>{erroCarga}</p>
       ) : !catalogo ? (
         <p style={{ fontSize: 13, color: "#8a8a8a" }}>Carregando...</p>
-      ) : catalogo.uniformes.length === 0 || catalogo.contratos.length === 0 ? (
+      ) : catalogo.uniformes.length === 0 ? (
         <p style={{ fontSize: 13, color: "#8a8a8a" }}>
-          Ainda não há {catalogo.uniformes.length === 0 ? "uniformes" : "contratos"} cadastrados no estoque. Fale com o responsável pelo estoque.
+          Ainda não há uniformes cadastrados no estoque. Fale com o responsável pelo estoque.
         </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={estiloCartao}>
-            <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 10px" }}>1. Contrato de destino</p>
-            {catalogo.contratos.length > 8 && (
+            <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 10px" }}>1. Contrato, setor e motivo</p>
+            <Campo rotulo="Nome do contrato">
               <input
-                value={buscaContrato}
-                onChange={(e) => setBuscaContrato(e.target.value)}
-                placeholder="Pesquisar contrato..."
-                style={{ ...estiloCampo, marginBottom: 8 }}
+                value={contratoNome}
+                onChange={(e) => escolherContrato(e.target.value)}
+                list="contratos-existentes"
+                placeholder="Digite o nome do contrato"
+                maxLength={150}
+                style={estiloCampo}
               />
-            )}
-            <select value={contratoId} onChange={(e) => setContratoId(e.target.value)} style={estiloCampo}>
-              <option value="">Escolha...</option>
-              {contratosFiltrados.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}{c.codigo ? ` (${c.codigo})` : ""} · {SETOR_LABEL[c.setor]}
-                </option>
+            </Campo>
+            {/* Sugestões dos contratos já usados (evita o mesmo contrato com nomes diferentes). */}
+            <datalist id="contratos-existentes">
+              {catalogo.contratos.map((c) => (
+                <option key={c.id} value={c.nome} />
               ))}
-            </select>
-            {setorPrevisto && contrato && (
-              <p style={{ fontSize: 12, color: "#8a8a8a", margin: "8px 0 0" }}>
-                Setor desta requisição: <b style={{ color: "#fff" }}>{SETOR_LABEL[setorPrevisto]}</b>
-                {catalogo.meuSetor ? " (seu cadastro)" : " (do contrato)"}
-              </p>
-            )}
+            </datalist>
+
+            <p style={{ fontSize: 12, color: "#8a8a8a", margin: "12px 0 6px" }}>Setor</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {(["PUBLICO", "PRIVADO"] as Setor[]).map((s) => {
+                const ativo = setor === s;
+                return (
+                  <button key={s} type="button" onClick={() => setSetor(s)} style={{
+                    minWidth: 52,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: ativo ? "1px solid #FF3B3B" : "1px solid rgba(255,255,255,0.1)",
+                    background: ativo ? "rgba(255,59,59,0.15)" : "rgba(255,255,255,0.03)",
+                    color: "#fff",
+                  }}>
+                    {SETOR_LABEL[s]}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p style={{ fontSize: 12, color: "#8a8a8a", margin: "12px 0 6px" }}>Motivo</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {(Object.keys(MOTIVO_REQUISICAO_LABEL) as MotivoRequisicao[]).map((m) => {
+                const ativo = motivo === m;
+                return (
+                  <button key={m} type="button" onClick={() => setMotivo(m)} style={{
+                    minWidth: 52,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: ativo ? "1px solid #FF3B3B" : "1px solid rgba(255,255,255,0.1)",
+                    background: ativo ? "rgba(255,59,59,0.15)" : "rgba(255,255,255,0.03)",
+                    color: "#fff",
+                  }}>
+                    {MOTIVO_REQUISICAO_LABEL[m]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div style={estiloCartao}>
