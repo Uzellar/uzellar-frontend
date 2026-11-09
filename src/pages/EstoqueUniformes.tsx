@@ -82,7 +82,7 @@ export default function EstoqueUniformes() {
       </div>
 
       {editando === "novo" && (
-        <FormUniforme fornecedores={fornecedores} aoSalvar={async () => { setEditando(null); await carregar(); }} aoCancelar={() => setEditando(null)} />
+        <FormUniforme fornecedores={fornecedores} existentes={uniformes} aoSalvar={async () => { setEditando(null); await carregar(); }} aoCancelar={() => setEditando(null)} />
       )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", margin: "16px 0 12px" }}>
@@ -141,14 +141,41 @@ function Indicador({ rotulo, valor, destaque }: { rotulo: string; valor: number;
   );
 }
 
+// Cadastro novo (11/2026): vários tamanhos de uma vez, no formato
+// "G 14, GG 05" — tamanho e quantidade já em estoque, separados por
+// vírgula. Tamanho sem número entra com quantidade 0. Cada tamanho vira
+// um cadastro próprio, como antes.
+interface TamanhoQtd {
+  tamanho: string;
+  quantidade: number;
+}
+function lerTamanhos(texto: string): { itens: TamanhoQtd[]; erro: string | null } {
+  const partes = texto.split(/[,;\n]+/).map((p) => p.trim()).filter(Boolean);
+  const itens: TamanhoQtd[] = [];
+  for (const parte of partes) {
+    const achado = parte.match(/^(.+?)\s*[-:=x×]?\s+(\d+)$/i) ?? parte.match(/^(\S+?)\s*[-:=x×]\s*(\d+)$/i);
+    const tamanho = (achado ? achado[1] : parte).trim();
+    const quantidade = achado ? Number(achado[2]) : 0;
+    if (!tamanho) return { itens, erro: `Não entendi "${parte}". Use, por exemplo: G 14, GG 05` };
+    if (tamanho.length > 20) return { itens, erro: `O tamanho "${tamanho}" é longo demais (máximo 20 letras).` };
+    if (itens.some((i) => i.tamanho.toLowerCase() === tamanho.toLowerCase())) {
+      return { itens, erro: `O tamanho ${tamanho} aparece mais de uma vez.` };
+    }
+    itens.push({ tamanho, quantidade });
+  }
+  return { itens, erro: null };
+}
+
 function FormUniforme({
   uniforme,
   fornecedores,
+  existentes = [],
   aoSalvar,
   aoCancelar,
 }: {
   uniforme?: Uniforme;
   fornecedores: Fornecedor[];
+  existentes?: Uniforme[];
   aoSalvar: () => Promise<void>;
   aoCancelar: () => void;
 }) {
@@ -162,6 +189,8 @@ function FormUniforme({
   const [valor, setValor] = useState(uniforme?.valorUnitario != null ? String(uniforme.valorUnitario).replace(".", ",") : "");
   const [minimo, setMinimo] = useState(String(uniforme?.estoqueMinimo ?? 0));
   const [saldoInicial, setSaldoInicial] = useState("");
+  const [tamanhosTexto, setTamanhosTexto] = useState("");
+  const tamanhosLidos = lerTamanhos(tamanhosTexto);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -169,6 +198,50 @@ function FormUniforme({
     const valorNum = lerNumero(valor);
     const minimoNum = lerNumero(minimo) ?? 0;
     const saldoNum = lerNumero(saldoInicial);
+    if (!extra && novo) {
+      if (!nome.trim() || !tipo.trim()) return setErro("Preencha nome e tipo.");
+      if (tamanhosLidos.erro) return setErro(tamanhosLidos.erro);
+      if (tamanhosLidos.itens.length === 0) return setErro("Informe os tamanhos. Ex.: G 14, GG 05");
+      if (Number.isNaN(valorNum) || (valorNum !== undefined && valorNum < 0)) return setErro("Valor unitário inválido.");
+      if (!Number.isInteger(minimoNum) || minimoNum < 0) return setErro("A quantidade mínima precisa ser um número inteiro.");
+      const repetido = tamanhosLidos.itens.find((t) =>
+        existentes.some((u) => u.nome.trim().toLowerCase() === nome.trim().toLowerCase() && u.tamanho.trim().toLowerCase() === t.tamanho.toLowerCase()),
+      );
+      if (repetido) return setErro(`Já existe "${nome.trim()}" no tamanho ${repetido.tamanho}. Tire esse tamanho da lista (para somar quantidade, use Entradas).`);
+      setSalvando(true);
+      setErro(null);
+      // Um cadastro por tamanho. Se algum falhar, os anteriores já ficaram
+      // salvos — a mensagem diz quais entraram e qual deu erro.
+      const feitos: string[] = [];
+      for (const t of tamanhosLidos.itens) {
+        try {
+          await apiEstoque("POST", "/uniformes", {
+            nome: nome.trim(),
+            tipo: tipo.trim(),
+            categoria: categoria.trim() || undefined,
+            descricao: descricao.trim() || undefined,
+            tamanho: t.tamanho,
+            fornecedorId: fornecedorId || undefined,
+            valorUnitario: valorNum,
+            estoqueMinimo: minimoNum,
+            saldoInicial: t.quantidade || undefined,
+          });
+          feitos.push(t.tamanho);
+        } catch (e: any) {
+          setErro(
+            (feitos.length ? `Cadastrados: ${feitos.join(", ")}. ` : "") +
+              `Erro no tamanho ${t.tamanho}: ${e.message}` +
+              (feitos.length ? " Tire da lista os tamanhos já cadastrados antes de tentar de novo." : ""),
+          );
+          if (feitos.length) setTamanhosTexto(tamanhosLidos.itens.filter((x) => !feitos.includes(x.tamanho)).map((x) => `${x.tamanho} ${x.quantidade}`).join(", "));
+          setSalvando(false);
+          return;
+        }
+      }
+      setSalvando(false);
+      await aoSalvar();
+      return;
+    }
     if (!extra) {
       if (!nome.trim() || !tipo.trim() || !tamanho.trim()) return setErro("Preencha nome, tipo e tamanho.");
       if (Number.isNaN(valorNum) || (valorNum !== undefined && valorNum < 0)) return setErro("Valor unitário inválido.");
@@ -218,7 +291,18 @@ function FormUniforme({
       <div style={estiloGrade}>
         <Campo rotulo="Nome *"><input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Camisa operacional" style={estiloCampo} /></Campo>
         <Campo rotulo="Tipo *"><input value={tipo} onChange={(e) => setTipo(e.target.value)} placeholder="Ex.: Camisa, Calça, Jaqueta" style={estiloCampo} /></Campo>
-        <Campo rotulo="Tamanho *"><input value={tamanho} onChange={(e) => setTamanho(e.target.value)} placeholder="Ex.: P, M, G, 42" style={estiloCampo} /></Campo>
+        {novo ? (
+          <Campo rotulo="Tamanhos e quantidades *">
+            <input
+              value={tamanhosTexto}
+              onChange={(e) => setTamanhosTexto(e.target.value)}
+              placeholder="Ex.: P 10, M 08, G 14, GG 05"
+              style={estiloCampo}
+            />
+          </Campo>
+        ) : (
+          <Campo rotulo="Tamanho *"><input value={tamanho} onChange={(e) => setTamanho(e.target.value)} placeholder="Ex.: P, M, G, 42" style={estiloCampo} /></Campo>
+        )}
         <Campo rotulo="Categoria"><input value={categoria} onChange={(e) => setCategoria(e.target.value)} placeholder="Ex.: Portaria, Limpeza" style={estiloCampo} /></Campo>
         <Campo rotulo="Fornecedor">
           <select value={fornecedorId} onChange={(e) => setFornecedorId(e.target.value)} style={estiloCampo}>
@@ -228,22 +312,30 @@ function FormUniforme({
         </Campo>
         <Campo rotulo="Valor unitário (R$)"><input value={valor} onChange={(e) => setValor(e.target.value)} placeholder="Ex.: 39,90" inputMode="decimal" style={estiloCampo} /></Campo>
         <Campo rotulo="Quantidade mínima (alerta)"><input value={minimo} onChange={(e) => setMinimo(e.target.value)} inputMode="numeric" style={estiloCampo} /></Campo>
-        {novo ? (
-          <Campo rotulo="Quantidade já em estoque"><input value={saldoInicial} onChange={(e) => setSaldoInicial(e.target.value)} placeholder="0" inputMode="numeric" style={estiloCampo} /></Campo>
-        ) : (
+        {!novo && (
           <Campo rotulo="Saldo atual"><div style={{ ...estiloCampo, display: "flex", alignItems: "center", color: "#aaa" }}>{uniforme!.saldo} (muda só por entrada/saída)</div></Campo>
         )}
       </div>
       <div style={{ marginTop: 10 }}>
         <Campo rotulo="Descrição"><textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} style={estiloAreaTexto} /></Campo>
       </div>
-      {novo && saldoInicial.trim() && (
-        <p style={{ fontSize: 12, color: "#8a8a8a", margin: "8px 0 0" }}>A quantidade inicial fica registrada como uma entrada ("Saldo inicial") no histórico.</p>
+      {novo && tamanhosTexto.trim() && (
+        <div style={{ fontSize: 12, color: "#8a8a8a", margin: "8px 0 0" }}>
+          {tamanhosLidos.erro ? (
+            <span style={{ color: "#fbbf24" }}>{tamanhosLidos.erro}</span>
+          ) : (
+            <>
+              Vai cadastrar {tamanhosLidos.itens.length} tamanho{tamanhosLidos.itens.length === 1 ? "" : "s"}:{" "}
+              <b style={{ color: "#fff" }}>{tamanhosLidos.itens.map((t) => `${t.tamanho} (${t.quantidade})`).join(" · ")}</b>.
+              {" "}As quantidades ficam registradas como entrada ("Saldo inicial") no histórico.
+            </>
+          )}
+        </div>
       )}
       {erro && <p style={{ fontSize: 12, color: "#f87171", margin: "10px 0 0" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
         <button onClick={() => salvar()} disabled={salvando} style={{ ...estiloBotaoPrincipal, opacity: salvando ? 0.6 : 1 }}>
-          {salvando ? "Salvando..." : novo ? "Cadastrar uniforme" : "Salvar alterações"}
+          {salvando ? "Salvando..." : novo ? (tamanhosLidos.itens.length > 1 ? `Cadastrar ${tamanhosLidos.itens.length} tamanhos` : "Cadastrar uniforme") : "Salvar alterações"}
         </button>
         <button onClick={aoCancelar} disabled={salvando} style={estiloBotaoPequeno}>Cancelar</button>
         <span style={{ flex: 1 }} />
