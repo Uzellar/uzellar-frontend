@@ -50,6 +50,7 @@ export default function EstoqueRequisicaoNova() {
   const [catalogo, setCatalogo] = useState<CatalogoRequisicao | null>(null);
   const [erroCarga, setErroCarga] = useState<string | null>(null);
   const [contratoNome, setContratoNome] = useState("");
+  const [colaboradorNome, setColaboradorNome] = useState("");
   const [setor, setSetor] = useState<Setor | "">("");
   const [motivo, setMotivo] = useState<MotivoRequisicao | "">("");
   const [linhas, setLinhas] = useState<Linha[]>([novaLinha()]);
@@ -85,6 +86,7 @@ export default function EstoqueRequisicaoNova() {
     if (salvando) return;
     setErro(null);
     if (!contratoNome.trim()) return setErro("Informe o nome do contrato.");
+    if (!colaboradorNome.trim()) return setErro("Informe o nome do colaborador.");
     if (!setor) return setErro("Escolha o setor: Público ou Privado.");
     if (!motivo) return setErro("Escolha o motivo da requisição.");
     const preenchidas = linhas.filter((l) => l.nome || l.uniformeId);
@@ -104,6 +106,7 @@ export default function EstoqueRequisicaoNova() {
     try {
       const r = await apiEstoque<RequisicaoDetalhe>("POST", "/requisicoes", {
         contratoNome: contratoNome.trim(),
+        colaboradorNome: colaboradorNome.trim(),
         setor,
         motivo,
         itens,
@@ -129,7 +132,7 @@ export default function EstoqueRequisicaoNova() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={estiloCartao}>
-            <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 10px" }}>1. Contrato, setor e motivo</p>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 10px" }}>1. Contrato, colaborador, setor e motivo</p>
             <Campo rotulo="Nome do contrato">
               <input
                 value={contratoNome}
@@ -146,6 +149,18 @@ export default function EstoqueRequisicaoNova() {
                 <option key={c.id} value={c.nome} />
               ))}
             </datalist>
+
+            <div style={{ marginTop: 12 }}>
+              <Campo rotulo="Nome do colaborador">
+                <input
+                  value={colaboradorNome}
+                  onChange={(e) => setColaboradorNome(e.target.value)}
+                  placeholder="Quem vai receber os uniformes"
+                  maxLength={150}
+                  style={estiloCampo}
+                />
+              </Campo>
+            </div>
 
             <p style={{ fontSize: 12, color: "#8a8a8a", margin: "12px 0 6px" }}>Setor</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

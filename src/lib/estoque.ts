@@ -277,6 +277,7 @@ export interface Requisicao {
   status: StatusRequisicao;
   setor: Setor;
   motivo: MotivoRequisicao | null; // vazio nas requisições anteriores a 11/2026
+  colaboradorNome: string | null; // para quem são os uniformes (11/2026)
   observacao: string | null;
   motivoCancelamento: string | null;
   criadoEm: string;

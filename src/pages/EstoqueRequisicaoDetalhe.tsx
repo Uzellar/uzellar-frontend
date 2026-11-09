@@ -133,6 +133,7 @@ export default function EstoqueRequisicaoDetalhe() {
             <span style={{ fontSize: 13 }}>
               {r.contrato.nome}{r.contrato.codigo ? ` (${r.contrato.codigo})` : ""} · Setor {SETOR_LABEL[r.setor]}
               {r.motivo && ` · Motivo: ${MOTIVO_REQUISICAO_LABEL[r.motivo]}`}
+              {r.colaboradorNome && ` · Colaborador: ${r.colaboradorNome}`}
             </span>
           </div>
           <p style={{ fontSize: 12, color: "#8a8a8a", margin: "8px 0 0" }}>

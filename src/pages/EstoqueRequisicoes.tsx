@@ -116,6 +116,7 @@ export default function EstoqueRequisicoes() {
               <p style={{ fontSize: 13, margin: "6px 0 0" }}>
                 {r.contrato.nome} · {SETOR_LABEL[r.setor]}
                 {r.motivo && ` · ${MOTIVO_REQUISICAO_LABEL[r.motivo]}`}
+                {r.colaboradorNome && ` · para ${r.colaboradorNome}`}
                 {equipe && <span style={{ color: "#8a8a8a" }}> · pedido por {r.solicitante.nome}</span>}
               </p>
               <p style={{ fontSize: 12, color: "#aaa", margin: "4px 0 0" }}>
