@@ -5,6 +5,7 @@ import { API_URL, authHeaders } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES, estiloCartaoVidro } from "../theme";
 import SeletorCondominio from "../components/SeletorCondominio";
+import AvisoVisitaAndamento from "../components/AvisoVisitaAndamento";
 
 // Painel principal do administrador — primeira tela que aparece ao
 // logar. Números e gráficos vêm de GET /api/dashboard?condominioId=...
@@ -110,6 +111,7 @@ export default function Dashboard() {
 
       <div style={{ flex: 1, padding: "2.5rem 1.5rem" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
+          <AvisoVisitaAndamento />
           <p
             style={{
               fontSize: 26,

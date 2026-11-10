@@ -37,6 +37,7 @@ export function perfilEstaEm(...perfis: string[]): boolean {
 export function limparToken() {
   localStorage.removeItem('uzellar_token');
   localStorage.removeItem('uzellar_perfil');
+  localStorage.removeItem('uzellar_nome');
 }
 
 // Visita com login (10/11/2026): quem abre o QR Code impresso sem estar

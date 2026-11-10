@@ -47,6 +47,7 @@ interface VisitaSalva {
   perguntas: Pergunta[];
   respostas: Record<string, string>;
   iniciadaEm: number;
+  condominioNome?: string;
 }
 
 function lerVisitaSalva(condominioId?: string): VisitaSalva | null {
@@ -188,6 +189,11 @@ export default function VisitaForm() {
           setEtapa(1);
         }
         setSupervisorNome(nome);
+        try {
+          localStorage.setItem("uzellar_nome", nome);
+        } catch {
+          // sem armazenamento
+        }
         setPermissao(true);
       })
       .catch(() => ativo && setPermissao("Não foi possível conferir sua permissão. Verifique a internet e recarregue a página."));
@@ -232,8 +238,17 @@ export default function VisitaForm() {
   // Guarda o andamento a cada resposta marcada.
   useEffect(() => {
     if (!visitaId || !turno || !iniciadaEm || concluida) return;
-    gravarVisitaSalva(condominioId, { visitaId, supervisorNome, turno, areasDiurno, perguntas, respostas, iniciadaEm });
-  }, [condominioId, visitaId, supervisorNome, turno, areasDiurno, perguntas, respostas, iniciadaEm, concluida]);
+    gravarVisitaSalva(condominioId, {
+      visitaId,
+      supervisorNome,
+      turno,
+      areasDiurno,
+      perguntas,
+      respostas,
+      iniciadaEm,
+      condominioNome: info?.condominioNome,
+    });
+  }, [condominioId, visitaId, supervisorNome, turno, areasDiurno, perguntas, respostas, iniciadaEm, concluida, info]);
 
   // Descarta a visita salva neste aparelho e volta pra tela inicial.
   // (A visita já criada continua no sistema como "em andamento".)

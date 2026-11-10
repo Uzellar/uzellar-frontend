@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsQR from "jsqr";
 import NavAdmin from "../components/NavAdmin";
+import AvisoVisitaAndamento from "../components/AvisoVisitaAndamento";
 import { CORES, FONTES } from "../theme";
 
 // "Registrar visita" (10/11/2026): o supervisor logado abre a câmera
@@ -95,6 +96,7 @@ export default function LerQrVisita() {
 
       <div style={{ flex: 1, padding: "2rem 1.5rem" }}>
         <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <AvisoVisitaAndamento />
           <p style={{ fontSize: 22, fontWeight: 900, color: CORES.texto, margin: 0, fontFamily: FONTES.titulo, letterSpacing: "-0.02em" }}>
             Registrar visita
           </p>
