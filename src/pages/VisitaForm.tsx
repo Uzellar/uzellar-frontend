@@ -1,11 +1,14 @@
 import { useRef, useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { API_URL } from "../lib/api";
+import { useNavigate, useParams } from "react-router-dom";
+import { API_URL, authHeaders } from "../lib/api";
 import logoUlrik from "../assets/ulrik-logo.png";
 
 // Tela aberta ao escanear o QR Code de VISITA do condomínio — usada
 // pelo supervisor, não pelo morador. Fluxo em duas etapas:
-// 1) nome + turno (grava o início da visita, com localização opcional)
+// 1) turno (grava o início da visita, com localização obrigatória)
+//
+// Desde 10/11/2026 exige login: só Supervisor do setor Privado ou Admin
+// Master, nos condomínios liberados. O nome gravado é o do cadastro.
 // 2) checklist correspondente ao turno escolhido (grava a conclusão)
 //
 // O checklist é CONFIGURÁVEL por condomínio (Etapa 3 do projeto) —
@@ -128,7 +131,10 @@ function CampoTexto({ label, valor, onMudar }: { label: string; valor: string; o
 
 export default function VisitaForm() {
   const { condominioId } = useParams<{ condominioId: string }>();
+  const navigate = useNavigate();
   const [info, setInfo] = useState<CondominioInfo | null>(null);
+  // null = conferindo; true = pode registrar; string = motivo do bloqueio
+  const [permissao, setPermissao] = useState<true | string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   // Etapa 1
@@ -156,6 +162,39 @@ export default function VisitaForm() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const desenhando = useRef(false);
   const assinaturaVazia = useRef(true);
+
+  // Confere se quem está logado pode registrar visita aqui e pega o nome
+  // do cadastro. Rascunho de outra pessoa neste aparelho é descartado.
+  useEffect(() => {
+    let ativo = true;
+    setPermissao(null);
+    fetch(`${API_URL}/api/visitas/permissao/${condominioId}`, { headers: authHeaders() })
+      .then(async (r) => {
+        const dados = await r.json().catch(() => ({}));
+        if (!ativo) return;
+        if (!r.ok) {
+          setPermissao(typeof dados?.message === "string" ? dados.message : "Você não pode registrar visita neste condomínio.");
+          return;
+        }
+        const nome: string = dados?.nome ?? "";
+        const salva = lerVisitaSalva(condominioId);
+        if (salva && salva.supervisorNome.trim().toLowerCase() !== nome.trim().toLowerCase()) {
+          gravarVisitaSalva(condominioId, null);
+          setVisitaId(null);
+          setPerguntas([]);
+          setRespostas({});
+          setIniciadaEm(null);
+          setRetomada(false);
+          setEtapa(1);
+        }
+        setSupervisorNome(nome);
+        setPermissao(true);
+      })
+      .catch(() => ativo && setPermissao("Não foi possível conferir sua permissão. Verifique a internet e recarregue a página."));
+    return () => {
+      ativo = false;
+    };
+  }, [condominioId]);
 
   useEffect(() => {
     fetch(`${API_URL}/api/condominios/${condominioId}/publico`)
@@ -265,7 +304,7 @@ export default function VisitaForm() {
 
   // Diurno: o supervisor precisa marcar pelo menos uma área.
   const areasOk = turno !== "DIURNO" || areasDiurno.length > 0;
-  const podeIniciar = supervisorNome.trim().length > 0 && turno !== null && areasOk && !enviandoInicio;
+  const podeIniciar = permissao === true && turno !== null && areasOk && !enviandoInicio;
 
   // Tenta pegar a localização do navegador — se o supervisor não
   // permitir, ou o celular não conseguir um sinal de GPS a tempo, a
@@ -320,17 +359,20 @@ export default function VisitaForm() {
       }
       const resposta = await fetch(`${API_URL}/api/visitas`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           condominioId,
-          supervisorNome,
           turno,
           ...localizacao,
         }),
       });
-      if (!resposta.ok) throw new Error();
-      const dados = await resposta.json();
+      const dados = await resposta.json().catch(() => ({}));
+      if (!resposta.ok) {
+        setErro(typeof dados?.message === "string" ? dados.message : "Não foi possível iniciar a visita. Tente novamente.");
+        return;
+      }
       setVisitaId(dados.id);
+      if (dados.supervisorNome) setSupervisorNome(dados.supervisorNome);
       setIniciadaEm(Date.now());
       setEtapa(2);
 
@@ -378,10 +420,14 @@ export default function VisitaForm() {
 
       const resposta = await fetch(`${API_URL}/api/visitas/${visitaId}/concluir`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(body),
       });
-      if (!resposta.ok) throw new Error();
+      if (!resposta.ok) {
+        const dados = await resposta.json().catch(() => ({}));
+        setErro(typeof dados?.message === "string" ? dados.message : "Não foi possível concluir a visita. Tente novamente.");
+        return;
+      }
       gravarVisitaSalva(condominioId, null);
       setConcluida(true);
     } catch {
@@ -403,6 +449,9 @@ export default function VisitaForm() {
           Visita registrada
         </h1>
         <p className="text-sm text-white/50 mt-1 max-w-xs">Obrigado, {supervisorNome.split(" ")[0]}! Sua ronda foi registrada com sucesso.</p>
+        <button type="button" onClick={() => navigate("/dashboard")} className="mt-5 text-sm text-white/70 underline">
+          Voltar ao painel
+        </button>
       </div>
     );
   }
@@ -423,20 +472,26 @@ export default function VisitaForm() {
             <p className="text-xs text-white/50 leading-tight">Visita operacional</p>
           </div>
         </div>
-        <img src={logoUlrik} alt="Ulrik" className="h-5 w-auto" />
+        <div className="flex flex-col items-end gap-1">
+          <img src={logoUlrik} alt="Ulrik" className="h-5 w-auto" />
+          <button type="button" onClick={() => navigate("/dashboard")} className="text-[11px] text-white/50 underline">
+            Painel
+          </button>
+        </div>
       </header>
 
       {etapa === 1 ? (
         <div className="px-5 py-5 space-y-6">
-          <section>
-            <label className="text-sm font-medium text-white block mb-2">Seu nome</label>
-            <input
-              type="text"
-              value={supervisorNome}
-              onChange={(e) => setSupervisorNome(e.target.value)}
-              placeholder="Nome completo"
-              className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
-            />
+          <section className="rounded-lg border border-white/10 bg-white/5 px-3 py-3">
+            {permissao === null ? (
+              <p className="text-sm text-white/50">Conferindo seu acesso...</p>
+            ) : permissao === true ? (
+              <p className="text-sm text-white">
+                Supervisor: <span className="font-semibold">{supervisorNome}</span>
+              </p>
+            ) : (
+              <p className="text-sm text-red-400">{permissao}</p>
+            )}
           </section>
 
           <section>

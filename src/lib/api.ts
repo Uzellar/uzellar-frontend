@@ -39,6 +39,26 @@ export function limparToken() {
   localStorage.removeItem('uzellar_perfil');
 }
 
+// Visita com login (10/11/2026): quem abre o QR Code impresso sem estar
+// logado vai para o login e, depois de entrar, volta para a visita.
+const CHAVE_RETORNO = 'uzellar_voltar_para';
+export function guardarRetorno(rota: string) {
+  try {
+    sessionStorage.setItem(CHAVE_RETORNO, rota);
+  } catch {
+    // sem armazenamento: depois do login vai para o painel normalmente
+  }
+}
+export function pegarRetorno(): string | null {
+  try {
+    const rota = sessionStorage.getItem(CHAVE_RETORNO);
+    sessionStorage.removeItem(CHAVE_RETORNO);
+    return rota && rota.startsWith('/visita/') ? rota : null;
+  } catch {
+    return null;
+  }
+}
+
 // Quando o login vence (8h) ou o acesso da pessoa é encerrado, a API
 // responde 401 — antes, as telas ficavam presas em "Carregando...".
 // Agora qualquer 401 vindo da API (com a pessoa logada) limpa o login
@@ -54,6 +74,7 @@ export function instalarTratamentoDeLoginVencido() {
     const ehApi = endereco.startsWith(API_URL) && !endereco.includes('/api/auth/login');
     if (resposta.status === 401 && ehApi && getToken()) {
       limparToken();
+      if (window.location.hash.startsWith('#/visita/')) guardarRetorno(window.location.hash.slice(1));
       window.location.hash = '#/login';
     }
     return resposta;

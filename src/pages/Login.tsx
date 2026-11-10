@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_URL, setToken, setPerfil } from "../lib/api";
+import { API_URL, setToken, setPerfil, pegarRetorno } from "../lib/api";
 import logoUlrik from "../assets/ulrik-logo.png";
 import { CORES, FONTES, estiloCartaoVidro, estiloBotaoPrimario, estiloBadge } from "../theme";
 
@@ -25,7 +25,9 @@ export default function Login() {
       setToken(dados.token);
       setPerfil(dados.usuario?.perfil ?? "");
       // O Responsável pelo estoque entra direto no módulo de estoque.
-      navigate(dados.usuario?.perfil === "ESTOQUE" ? "/estoque/uniformes" : "/dashboard");
+      // Veio de um QR Code de visita? Volta para a visita depois do login.
+      const retorno = pegarRetorno();
+      navigate(retorno ?? (dados.usuario?.perfil === "ESTOQUE" ? "/estoque/uniformes" : "/dashboard"));
     } catch {
       setErro("E-mail ou senha inválidos.");
     } finally {

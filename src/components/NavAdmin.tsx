@@ -26,6 +26,7 @@ const GRUPOS_ADMIN: Grupo[] = [
   {
     titulo: "Supervisão",
     itens: [
+      { rota: "/registrar-visita", rotulo: "Registrar visita" },
       { rota: "/visitas-operacionais", rotulo: "Visita da supervisão" },
       { rota: "/dashboard-supervisao", rotulo: "Dashboard de supervisão" },
     ],
@@ -55,7 +56,13 @@ const GRUPOS_ADMIN: Grupo[] = [
 // telefones, cadastros ou relatórios de condôminos — só Admin Master).
 const GRUPOS_SUPERVISOR: Grupo[] = [
   { titulo: "Condôminos", itens: [{ rota: "/solicitacoes", rotulo: "Solicitações de condômino" }] },
-  { titulo: "Supervisão", itens: [{ rota: "/relatorio-visitas", rotulo: "Relatório de visitas" }] },
+  {
+    titulo: "Supervisão",
+    itens: [
+      { rota: "/registrar-visita", rotulo: "Registrar visita" },
+      { rota: "/relatorio-visitas", rotulo: "Relatório de visitas" },
+    ],
+  },
   { titulo: "Uniformes", itens: [{ rota: "/estoque/requisicoes", rotulo: "Requisições de uniforme" }] },
 ];
 

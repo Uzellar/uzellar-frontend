@@ -1,5 +1,5 @@
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { getToken, ehAdminMaster, perfilEstaEm } from "./lib/api";
+import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { getToken, ehAdminMaster, perfilEstaEm, guardarRetorno } from "./lib/api";
 import Login from "./pages/Login";
 import SolicitacaoForm from "./pages/SolicitacaoForm";
 import Dashboard from "./pages/Dashboard";
@@ -12,6 +12,7 @@ import Solicitacoes from "./pages/Solicitacoes";
 import Relatorios from "./pages/Relatorios";
 import RelatorioVisitas from "./pages/RelatorioVisitas";
 import VisitaForm from "./pages/VisitaForm";
+import LerQrVisita from "./pages/LerQrVisita";
 import EstoqueUniformes from "./pages/EstoqueUniformes";
 import EstoqueMovimentar from "./pages/EstoqueMovimentar";
 import EstoqueHistorico from "./pages/EstoqueHistorico";
@@ -46,6 +47,18 @@ function RotaComPerfil({ perfis, children }: { perfis: string[]; children: JSX.E
   return children;
 }
 
+// Visita da supervisão (10/11/2026): exige login. Quem abre o QR Code
+// impresso sem estar logado vai para o login e depois volta para cá.
+function RotaVisita({ children }: { children: JSX.Element }) {
+  const { pathname } = useLocation();
+  if (!getToken()) {
+    guardarRetorno(pathname);
+    return <Navigate to="/login" replace />;
+  }
+  if (!perfilEstaEm("ADMIN_MASTER", "SUPERVISOR")) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 const PERFIS_ESTOQUE = ["ADMIN_MASTER", "ESTOQUE"];
 // Requisições: o Supervisor também acessa (só as próprias).
 const PERFIS_REQUISICOES = ["ADMIN_MASTER", "ESTOQUE", "SUPERVISOR"];
@@ -57,8 +70,23 @@ export default function App() {
         {/* Pública — sem login, é o que o morador usa */}
         <Route path="/atender/:condominioId" element={<SolicitacaoForm />} />
 
-        {/* Pública — sem login, é o que o supervisor usa nas rondas */}
-        <Route path="/visita/:condominioId" element={<VisitaForm />} />
+        {/* Visita da supervisão — exige login (Supervisor do setor Privado ou Admin Master) */}
+        <Route
+          path="/visita/:condominioId"
+          element={
+            <RotaVisita>
+              <VisitaForm />
+            </RotaVisita>
+          }
+        />
+        <Route
+          path="/registrar-visita"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <LerQrVisita />
+            </RotaComPerfil>
+          }
+        />
 
         {/* Painel administrativo */}
         <Route path="/login" element={<Login />} />
