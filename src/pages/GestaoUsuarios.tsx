@@ -232,7 +232,18 @@ export default function GestaoUsuarios() {
 
             {precisaCondominio && (
               <>
-                <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 6px" }}>Condomínios que essa pessoa acessa</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 0 6px" }}>
+                <p style={{ fontSize: 12, color: "#8a8a8a", margin: 0 }}>Condomínios que essa pessoa acessa</p>
+                {condominios.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCondominioIds(condominios.every((c) => condominioIds.includes(c.id)) ? [] : condominios.map((c) => c.id))}
+                    style={{ fontSize: 12, padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#ddd", cursor: "pointer" }}
+                  >
+                    {condominios.every((c) => condominioIds.includes(c.id)) ? "Desmarcar todos" : `Selecionar todos (${condominios.length})`}
+                  </button>
+                )}
+              </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
                   {condominios.map((c) => (
                     <button
@@ -465,7 +476,18 @@ function CartaoUsuario({
 
           {precisaCondominio ? (
             <>
-              <p style={{ fontSize: 12, color: "#8a8a8a", margin: "0 0 6px" }}>Condomínios que essa pessoa pode acessar</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "0 0 6px" }}>
+                <p style={{ fontSize: 12, color: "#8a8a8a", margin: 0 }}>Condomínios que essa pessoa pode acessar</p>
+                {condominios.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCondominioIds(condominios.every((c) => condominioIds.includes(c.id)) ? [] : condominios.map((c) => c.id))}
+                    style={{ fontSize: 12, padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#ddd", cursor: "pointer" }}
+                  >
+                    {condominios.every((c) => condominioIds.includes(c.id)) ? "Desmarcar todos" : `Selecionar todos (${condominios.length})`}
+                  </button>
+                )}
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
                 {condominios.map((c) => (
                   <button
