@@ -28,6 +28,8 @@ const GRUPOS_ADMIN: Grupo[] = [
     itens: [
       { rota: "/registrar-visita", rotulo: "Registrar visita" },
       { rota: "/rotas", rotulo: "Condomínios e rotas" },
+      { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
+      { rota: "/mapas-ronda", rotulo: "Controle de mapas de ronda" },
       { rota: "/visitas-operacionais", rotulo: "Visita da supervisão" },
       { rota: "/dashboard-supervisao", rotulo: "Dashboard de supervisão" },
     ],
@@ -49,6 +51,7 @@ const GRUPOS_ADMIN: Grupo[] = [
     itens: [
       { rota: "/condominios", rotulo: "Cadastro de condomínios" },
       { rota: "/usuarios", rotulo: "Configuração de usuários" },
+      { rota: "/veiculos", rotulo: "Veículos" },
     ],
   },
 ];
@@ -62,6 +65,7 @@ const GRUPOS_SUPERVISOR: Grupo[] = [
     itens: [
       { rota: "/registrar-visita", rotulo: "Registrar visita" },
       { rota: "/rotas", rotulo: "Condomínios e rotas" },
+      { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
       { rota: "/relatorio-visitas", rotulo: "Relatório de visitas" },
     ],
   },

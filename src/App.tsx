@@ -21,6 +21,9 @@ import EstoqueCadastros from "./pages/EstoqueCadastros";
 import EstoqueRequisicoes from "./pages/EstoqueRequisicoes";
 import EstoqueRequisicaoNova from "./pages/EstoqueRequisicaoNova";
 import EstoqueRequisicaoDetalhe from "./pages/EstoqueRequisicaoDetalhe";
+import MapaRonda from "./pages/MapaRonda";
+import MapasRondaAdmin from "./pages/MapasRondaAdmin";
+import Veiculos from "./pages/Veiculos";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
 // houver token salvo, manda de volta para a tela de login.
@@ -94,6 +97,32 @@ export default function App() {
             <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
               <LerQrVisita />
             </RotaComPerfil>
+          }
+        />
+
+        {/* Mapa de ronda (11/2026) — supervisor do setor Privado (conferido no servidor) */}
+        <Route
+          path="/mapa-ronda"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <MapaRonda />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/mapas-ronda"
+          element={
+            <RotaAdminMaster>
+              <MapasRondaAdmin />
+            </RotaAdminMaster>
+          }
+        />
+        <Route
+          path="/veiculos"
+          element={
+            <RotaAdminMaster>
+              <Veiculos />
+            </RotaAdminMaster>
           }
         />
 
