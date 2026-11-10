@@ -13,6 +13,7 @@ import Relatorios from "./pages/Relatorios";
 import RelatorioVisitas from "./pages/RelatorioVisitas";
 import VisitaForm from "./pages/VisitaForm";
 import LerQrVisita from "./pages/LerQrVisita";
+import CondominiosRotas from "./pages/CondominiosRotas";
 import EstoqueUniformes from "./pages/EstoqueUniformes";
 import EstoqueMovimentar from "./pages/EstoqueMovimentar";
 import EstoqueHistorico from "./pages/EstoqueHistorico";
@@ -77,6 +78,14 @@ export default function App() {
             <RotaVisita>
               <VisitaForm />
             </RotaVisita>
+          }
+        />
+        <Route
+          path="/rotas"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <CondominiosRotas />
+            </RotaComPerfil>
           }
         />
         <Route
