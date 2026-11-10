@@ -209,6 +209,7 @@ export default function SolicitacaoForm() {
           <input
             type="text"
             value={nomeMorador}
+            maxLength={120}
             onChange={(e) => setNomeMorador(e.target.value)}
             placeholder="Nome completo"
             className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
@@ -221,6 +222,7 @@ export default function SolicitacaoForm() {
             <input
               type="text"
               value={bloco}
+              maxLength={30}
               onChange={(e) => setBloco(e.target.value)}
               placeholder="Ex: A"
               className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
@@ -231,6 +233,7 @@ export default function SolicitacaoForm() {
             <input
               type="text"
               value={apartamento}
+              maxLength={30}
               onChange={(e) => setApartamento(e.target.value)}
               placeholder="Ex: 302"
               className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"
@@ -246,6 +249,7 @@ export default function SolicitacaoForm() {
           <input
             type="text"
             value={telefoneMorador}
+            maxLength={30}
             onChange={(e) => setTelefoneMorador(e.target.value)}
             placeholder="(11) 99999-9999"
             className="w-full h-10 rounded-lg border border-white/10 px-3 text-sm text-white bg-white/5 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3B3B]/25 focus:border-[#FF3B3B]/50"

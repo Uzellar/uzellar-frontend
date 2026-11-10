@@ -351,7 +351,7 @@ export default function VisitaForm() {
           : (["PORTARIA", "ZELADORIA"] as AreaDiurna[]).filter((a) => areas.includes(a));
     const listas = await Promise.all(
       tipos.map(async (tipo) => {
-        const respPerguntas = await fetch(`${API_URL}/api/checklist?condominioId=${condominioId}&tipo=${tipo}`);
+        const respPerguntas = await fetch(`${API_URL}/api/checklist?condominioId=${condominioId}&tipo=${tipo}`, { headers: authHeaders() });
         if (!respPerguntas.ok) throw new Error();
         const lista: Pergunta[] = await respPerguntas.json();
         return lista.map((p) => ({ ...p, tipoChecklist: tipo }));
