@@ -30,6 +30,7 @@ const GRUPOS_ADMIN: Grupo[] = [
       { rota: "/rotas", rotulo: "Condomínios e rotas" },
       { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
       { rota: "/mapas-ronda", rotulo: "Controle de mapas de ronda" },
+      { rota: "/localizacao-equipe", rotulo: "Localização da equipe" },
       { rota: "/visitas-operacionais", rotulo: "Visita da supervisão" },
       { rota: "/dashboard-supervisao", rotulo: "Dashboard de supervisão" },
     ],

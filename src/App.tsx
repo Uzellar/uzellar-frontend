@@ -24,6 +24,8 @@ import EstoqueRequisicaoDetalhe from "./pages/EstoqueRequisicaoDetalhe";
 import MapaRonda from "./pages/MapaRonda";
 import MapasRondaAdmin from "./pages/MapasRondaAdmin";
 import Veiculos from "./pages/Veiculos";
+import LocalizacaoEquipe from "./pages/LocalizacaoEquipe";
+import RastreioLocalizacao from "./components/RastreioLocalizacao";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
 // houver token salvo, manda de volta para a tela de login.
@@ -70,6 +72,8 @@ const PERFIS_REQUISICOES = ["ADMIN_MASTER", "ESTOQUE", "SUPERVISOR"];
 export default function App() {
   return (
     <HashRouter>
+      {/* Localização da equipe: envia a posição do supervisor com o app aberto */}
+      <RastreioLocalizacao />
       <Routes>
         {/* Pública — sem login, é o que o morador usa */}
         <Route path="/atender/:condominioId" element={<SolicitacaoForm />} />
@@ -114,6 +118,14 @@ export default function App() {
           element={
             <RotaAdminMaster>
               <MapasRondaAdmin />
+            </RotaAdminMaster>
+          }
+        />
+        <Route
+          path="/localizacao-equipe"
+          element={
+            <RotaAdminMaster>
+              <LocalizacaoEquipe />
             </RotaAdminMaster>
           }
         />
