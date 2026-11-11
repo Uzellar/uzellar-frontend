@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
+import CameraFoto from "../components/CameraFoto";
+import { apagarRascunho, gravarCampos, gravarFotos, lerCampos, lerFotos } from "../lib/rascunhoMapa";
 import { MapaRonda as Mapa, Veiculo, apiMapas, dataCurta, formatarKm, formatarPlaca, hora, reduzirFoto } from "../lib/mapaRonda";
 
 // Mapa de ronda (11/2026) — supervisor do setor Privado.
@@ -135,13 +137,17 @@ function CampoAssinatura({ onMudar }: { onMudar: (dataUrl: string | null) => voi
 
 function FormAbrir({ aoAbrir }: { aoAbrir: () => void }) {
   const [veiculos, setVeiculos] = useState<Veiculo[] | null>(null);
-  const [veiculoId, setVeiculoId] = useState("");
-  const [kmInicial, setKmInicial] = useState("");
-  const [faltando, setFaltando] = useState<boolean | null>(null);
-  const [itens, setItens] = useState("");
-  const [avaria, setAvaria] = useState<boolean | null>(null);
-  const [avariaDesc, setAvariaDesc] = useState("");
+  // Rascunho salvo no celular (o app pode ser fechado pelo sistema).
+  const [rascunho] = useState(() => lerCampos());
+  const [veiculoId, setVeiculoId] = useState(rascunho?.veiculoId ?? "");
+  const [kmInicial, setKmInicial] = useState(rascunho?.kmInicial ?? "");
+  const [faltando, setFaltando] = useState<boolean | null>(rascunho?.faltando ?? null);
+  const [itens, setItens] = useState(rascunho?.itens ?? "");
+  const [avaria, setAvaria] = useState<boolean | null>(rascunho?.avaria ?? null);
+  const [avariaDesc, setAvariaDesc] = useState(rascunho?.avariaDesc ?? "");
   const [fotos, setFotos] = useState<{ arquivo: File; preview: string }[]>([]);
+  const [cameraAberta, setCameraAberta] = useState(false);
+  const fotosCarregadas = useRef(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -150,6 +156,21 @@ function FormAbrir({ aoAbrir }: { aoAbrir: () => void }) {
       .then(setVeiculos)
       .catch((e) => setErro(e.message));
   }, []);
+
+  // Recupera as fotos do rascunho (se houver) e depois passa a guardar.
+  useEffect(() => {
+    lerFotos().then((salvas) => {
+      if (salvas.length > 0) setFotos(salvas.slice(0, MAX_FOTOS).map((arquivo) => ({ arquivo, preview: URL.createObjectURL(arquivo) })));
+      fotosCarregadas.current = true;
+    });
+  }, []);
+  useEffect(() => {
+    if (fotosCarregadas.current) gravarFotos(fotos.map((f) => f.arquivo));
+  }, [fotos]);
+  useEffect(() => {
+    const algo = veiculoId || kmInicial || faltando !== null || avaria !== null || itens || avariaDesc;
+    if (algo) gravarCampos({ veiculoId, kmInicial, faltando, itens, avaria, avariaDesc });
+  }, [veiculoId, kmInicial, faltando, itens, avaria, avariaDesc]);
 
   // Libera as prévias das fotos só ao sair da tela.
   const fotosRef = useRef(fotos);
@@ -195,6 +216,7 @@ function FormAbrir({ aoAbrir }: { aoAbrir: () => void }) {
         fotos.forEach((f) => form.append("fotos", f.arquivo));
       }
       await apiMapas("", { method: "POST", body: form }, "Não foi possível abrir o mapa. Tente de novo.");
+      apagarRascunho();
       aoAbrir();
     } catch (e) {
       setErro((e as Error).message);
@@ -208,6 +230,7 @@ function FormAbrir({ aoAbrir }: { aoAbrir: () => void }) {
       <div>
         <p className="text-base font-bold text-white m-0">Abrir mapa de ronda</p>
         <p className="text-xs text-white/50 mt-1 mb-0">Preencha no início do turno, antes de sair com o veículo.</p>
+        {rascunho && <p className="text-xs text-amber-400 mt-1.5 mb-0">Continuando o que você já tinha preenchido neste celular.</p>}
       </div>
 
       <div>
@@ -292,25 +315,42 @@ function FormAbrir({ aoAbrir }: { aoAbrir: () => void }) {
                 </div>
               ))}
               {fotos.length < MAX_FOTOS && (
-                <label className="h-24 rounded-lg border border-dashed border-white/20 flex flex-col items-center justify-center text-white/50 text-xs cursor-pointer">
-                  <span className="text-xl leading-none mb-1">＋</span>
-                  Tirar / anexar
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      adicionarFotos(e.target.files);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+                <div className="h-24 grid grid-rows-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCameraAberta(true)}
+                    className="rounded-lg bg-[#FF3B3B]/15 border border-[#FF3B3B]/50 text-white text-xs font-semibold"
+                  >
+                    📷 Câmera
+                  </button>
+                  <label className="rounded-lg border border-dashed border-white/20 flex items-center justify-center text-white/60 text-xs cursor-pointer">
+                    Galeria
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        adicionarFotos(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
               )}
             </div>
           </div>
         </div>
+      )}
+
+      {cameraAberta && (
+        <CameraFoto
+          restantes={MAX_FOTOS - fotos.length}
+          onFoto={(arquivo) =>
+            setFotos((atual) => (atual.length >= MAX_FOTOS ? atual : [...atual, { arquivo, preview: URL.createObjectURL(arquivo) }]))
+          }
+          onFechar={() => setCameraAberta(false)}
+        />
       )}
 
       {erro && <p className="text-sm text-red-400 m-0">{erro}</p>}
