@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
-import { API_URL, authHeaders } from "../lib/api";
+import { API_URL, authHeaders, ehAdminMaster } from "../lib/api";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES, estiloCartaoVidro } from "../theme";
 import SeletorCondominio from "../components/SeletorCondominio";
@@ -10,6 +10,10 @@ import SeletorCondominio from "../components/SeletorCondominio";
 // (Diurno = Portaria e Zeladoria; Limpeza; Noturno = Portaria). Números
 // e gráficos vêm de GET /api/visitas/dashboard?turno=...&condominioId=...
 // (condominioId vazio = todos os condomínios).
+//
+// Supervisor (11/11/2026): o mesmo painel, individual — o servidor
+// devolve só as visitas dele e só os condomínios liberados para ele.
+// Aparecem apenas as abas de turno em que ele tem visita.
 
 type Turno = "DIURNO" | "LIMPEZA" | "NOTURNO";
 
@@ -29,6 +33,8 @@ interface Indicadores {
   graficoMensal: { rotulo: string; quantidade: number }[];
   porSupervisor?: { nome: string; quantidade: number; concluidas: number }[];
   rankingCondominios?: { condominioId: string; nome: string; quantidade: number }[];
+  individual?: boolean;
+  turnosComVisitas?: Turno[];
 }
 
 // Lista com barra proporcional — usada no ranking e nos supervisores.
@@ -129,6 +135,7 @@ export default function DashboardSupervisao() {
   const [condominiosCarregados, setCondominiosCarregados] = useState(false);
   const [turno, setTurno] = useState<Turno>("DIURNO");
   const [carregando, setCarregando] = useState(false);
+  const individual = !ehAdminMaster();
 
   useEffect(() => {
     fetch(`${API_URL}/api/condominios`, { headers: authHeaders() })
@@ -158,6 +165,15 @@ export default function DashboardSupervisao() {
     };
   }, [condominioId, turno, condominiosCarregados, condominios.length]);
 
+  // Supervisor: só as abas dos turnos em que ele tem visita (sem
+  // nenhuma visita ainda, mostra as três).
+  const turnosDele = individual ? dados?.turnosComVisitas ?? [] : [];
+  const abasVisiveis = turnosDele.length > 0 ? ABAS.filter((a) => turnosDele.includes(a.turno)) : ABAS;
+
+  useEffect(() => {
+    if (!abasVisiveis.some((a) => a.turno === turno)) setTurno(abasVisiveis[0].turno);
+  }, [abasVisiveis, turno]);
+
   const abaAtual = ABAS.find((a) => a.turno === turno)!;
 
   if (condominiosCarregados && condominios.length === 0) {
@@ -165,7 +181,7 @@ export default function DashboardSupervisao() {
       <div style={{ background: CORES.fundo, minHeight: "100vh", display: "flex" }}>
         <NavAdmin />
         <div style={{ flex: 1, padding: "2rem", color: CORES.textoMuted, fontSize: 13, fontFamily: FONTES.corpo }}>
-          Nenhum condomínio cadastrado ainda.
+          {individual ? "Nenhum condomínio liberado para você." : "Nenhum condomínio cadastrado ainda."}
         </div>
       </div>
     );
@@ -197,18 +213,20 @@ export default function DashboardSupervisao() {
                 letterSpacing: "-0.03em",
               }}
             >
-              Dashboard de Supervisão
+              {individual ? "Meu dashboard de supervisão" : "Dashboard de Supervisão"}
             </p>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa", background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999, padding: "3px 10px" }}>
               👷 Supervisão
             </span>
           </div>
           <p style={{ fontSize: 13, color: CORES.textoSecundario, margin: "0 0 16px", fontFamily: FONTES.corpo }}>
-            Visão geral das rondas por turno — separado do Dashboard de Limpeza.
+            {individual
+              ? "Somente as suas visitas, nos condomínios liberados para você."
+              : "Visão geral das rondas por turno — separado do Dashboard de Limpeza."}
           </p>
 
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            {ABAS.map((aba) => {
+            {abasVisiveis.map((aba) => {
               const ativa = aba.turno === turno;
               return (
                 <button
@@ -278,10 +296,12 @@ export default function DashboardSupervisao() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-            <PainelCard titulo={`Ranking de condomínios — ${abaAtual.titulo.replace(/^\S+\s/, "")}`}>
+            <PainelCard
+              titulo={`${individual ? "Minhas visitas por condomínio" : "Ranking de condomínios"} — ${abaAtual.titulo.replace(/^\S+\s/, "")}`}
+            >
               <ListaBarras
                 limite={10}
-                vazio="Nenhum condomínio cadastrado."
+                vazio={individual ? "Nenhum condomínio liberado." : "Nenhum condomínio cadastrado."}
                 itens={(dados.rankingCondominios ?? []).map((c) => ({
                   chave: c.condominioId,
                   nome: c.nome,
@@ -291,6 +311,7 @@ export default function DashboardSupervisao() {
               />
             </PainelCard>
 
+            {!individual && (
             <PainelCard titulo="Visitas por supervisor">
               <ListaBarras
                 limite={10}
@@ -303,6 +324,7 @@ export default function DashboardSupervisao() {
                 }))}
               />
             </PainelCard>
+            )}
           </div>
           </div>
         </div>

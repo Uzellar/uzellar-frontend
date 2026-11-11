@@ -68,6 +68,7 @@ const GRUPOS_SUPERVISOR: Grupo[] = [
       { rota: "/rotas", rotulo: "Condomínios e rotas" },
       { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
       { rota: "/relatorio-visitas", rotulo: "Relatório de visitas" },
+      { rota: "/dashboard-supervisao", rotulo: "Meu dashboard" },
     ],
   },
   { titulo: "Uniformes", itens: [{ rota: "/estoque/requisicoes", rotulo: "Requisições de uniforme" }] },

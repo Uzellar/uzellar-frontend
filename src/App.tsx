@@ -151,9 +151,9 @@ export default function App() {
         <Route
           path="/dashboard-supervisao"
           element={
-            <RotaAdminMaster>
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
               <DashboardSupervisao />
-            </RotaAdminMaster>
+            </RotaComPerfil>
           }
         />
         <Route
