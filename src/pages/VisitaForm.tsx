@@ -18,6 +18,9 @@ import ConfirmarQrVisita from "../components/ConfirmarQrVisita";
 // "Visita Operacional", sem precisar mexer em código.
 
 type Turno = "DIURNO" | "NOTURNO" | "LIMPEZA";
+
+// Tempo mínimo de uma visita antes de poder concluir (13/11/2026).
+const TEMPO_MINIMO_VISITA_MS = 15 * 60 * 1000;
 type TipoResposta = "OPCOES" | "TEXTO";
 type TipoChecklist = "PORTARIA" | "ZELADORIA" | "LIMPEZA";
 // Áreas que o supervisor diurno pode vistoriar — ele escolhe na hora.
@@ -414,7 +417,18 @@ export default function VisitaForm() {
     .filter((p) => p.tipoResposta === "OPCOES")
     .every((p) => !!respostas[p.id]);
 
-  const podeConcluir = visitaId !== null && !enviandoChecklist && !carregandoPerguntas && checklistCompleto;
+  // 13/11/2026: a visita precisa durar pelo menos 15 minutos para poder
+  // ser concluída (o servidor também confere, com o horário dele).
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const relogio = setInterval(() => setAgora(Date.now()), 10_000);
+    return () => clearInterval(relogio);
+  }, []);
+  const faltaTempoMs = iniciadaEm ? Math.max(0, iniciadaEm + TEMPO_MINIMO_VISITA_MS - agora) : 0;
+  const minutosFaltando = Math.ceil(faltaTempoMs / 60_000);
+
+  const podeConcluir =
+    visitaId !== null && !enviandoChecklist && !carregandoPerguntas && checklistCompleto && faltaTempoMs === 0;
 
   const concluirVisita = async (qrCondominioId: string) => {
     if (!podeConcluir) return;
@@ -675,8 +689,18 @@ export default function VisitaForm() {
             className="w-full h-12 rounded-full bg-[#FF3B3B] text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ boxShadow: podeConcluir ? "0 12px 40px -6px rgba(255,59,59,0.45)" : "none" }}
           >
-            {enviandoChecklist ? "Enviando..." : "📷 Ler QR Code e concluir visita"}
+            {enviandoChecklist
+              ? "Enviando..."
+              : faltaTempoMs > 0
+                ? `⏱ Concluir liberado em ${minutosFaltando} min`
+                : "📷 Ler QR Code e concluir visita"}
           </button>
+          {faltaTempoMs > 0 && iniciadaEm && (
+            <p className="text-xs text-amber-300 text-center m-0">
+              A visita precisa durar pelo menos 15 minutos. Você poderá concluir a partir das{" "}
+              {new Date(iniciadaEm + TEMPO_MINIMO_VISITA_MS).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
+            </p>
+          )}
           <p className="text-xs text-white/40 text-center m-0">Para concluir, leia de novo o QR Code de visita deste condomínio.</p>
           {lendoQrConclusao && condominioId && (
             <ConfirmarQrVisita
