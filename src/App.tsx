@@ -23,6 +23,7 @@ import EstoqueRequisicaoNova from "./pages/EstoqueRequisicaoNova";
 import EstoqueRequisicaoDetalhe from "./pages/EstoqueRequisicaoDetalhe";
 import MapaRonda from "./pages/MapaRonda";
 import MaterialApoio from "./pages/MaterialApoio";
+import Sugestoes from "./pages/Sugestoes";
 import MapasRondaAdmin from "./pages/MapasRondaAdmin";
 import Veiculos from "./pages/Veiculos";
 import LocalizacaoEquipe from "./pages/LocalizacaoEquipe";
@@ -110,6 +111,16 @@ export default function App() {
           element={
             <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
               <LerQrVisita />
+            </RotaComPerfil>
+          }
+        />
+
+        {/* Caixa de sugestões (11/2026) — anônima; supervisor envia, Master lê */}
+        <Route
+          path="/sugestoes"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <Sugestoes />
             </RotaComPerfil>
           }
         />

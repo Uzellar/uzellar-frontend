@@ -57,6 +57,7 @@ const GRUPOS_ADMIN: Grupo[] = [
       { rota: "/veiculos", rotulo: "Veículos" },
     ],
   },
+  { titulo: "Aplicativo", itens: [{ rota: "/sugestoes", rotulo: "Sugestões recebidas" }] },
 ];
 
 // Supervisor: solicitações + relatório de visitas (sem QR Code,
@@ -81,6 +82,7 @@ const GRUPOS_SUPERVISOR: Grupo[] = [
     ],
   },
   { titulo: "Uniformes", itens: [{ rota: "/estoque/requisicoes", rotulo: "Requisições de uniforme" }] },
+  { titulo: "Aplicativo", itens: [{ rota: "/sugestoes", rotulo: "Caixa de sugestões" }] },
 ];
 
 // Responsável pelo estoque: só o módulo de Estoque de uniformes.
