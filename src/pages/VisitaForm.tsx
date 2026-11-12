@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_URL, authHeaders } from "../lib/api";
 import logoUlrik from "../assets/ulrik-logo.png";
+import ConfirmarQrVisita from "../components/ConfirmarQrVisita";
 
 // Tela aberta ao escanear o QR Code de VISITA do condomínio — usada
 // pelo supervisor, não pelo morador. Fluxo em duas etapas:
@@ -153,6 +154,8 @@ export default function VisitaForm() {
 
   const [enviandoChecklist, setEnviandoChecklist] = useState(false);
   const [concluida, setConcluida] = useState(false);
+  // 12/11/2026: para concluir, o supervisor lê de novo o QR Code de visita.
+  const [lendoQrConclusao, setLendoQrConclusao] = useState(false);
 
   // Momento em que a visita começou (pra mostrar no aviso de retomada) e
   // se ela foi retomada de uma sessão anterior neste aparelho.
@@ -413,7 +416,7 @@ export default function VisitaForm() {
 
   const podeConcluir = visitaId !== null && !enviandoChecklist && !carregandoPerguntas && checklistCompleto;
 
-  const concluirVisita = async () => {
+  const concluirVisita = async (qrCondominioId: string) => {
     if (!podeConcluir) return;
     setEnviandoChecklist(true);
     setErro(null);
@@ -428,7 +431,7 @@ export default function VisitaForm() {
           ...(turno === "DIURNO" && p.tipoChecklist ? { secao: TITULO_SECAO[p.tipoChecklist] } : {}),
         }));
 
-      const body: Record<string, unknown> = { respostas: listaRespostas };
+      const body: Record<string, unknown> = { respostas: listaRespostas, qrCondominioId };
       if (!assinaturaVazia.current && canvasRef.current) {
         body.assinatura = canvasRef.current.toDataURL("image/png");
       }
@@ -665,12 +668,26 @@ export default function VisitaForm() {
           <button
             type="button"
             disabled={!podeConcluir}
-            onClick={concluirVisita}
+            onClick={() => {
+              setErro(null);
+              setLendoQrConclusao(true);
+            }}
             className="w-full h-12 rounded-full bg-[#FF3B3B] text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ boxShadow: podeConcluir ? "0 12px 40px -6px rgba(255,59,59,0.45)" : "none" }}
           >
-            {enviandoChecklist ? "Enviando..." : "Concluir visita"}
+            {enviandoChecklist ? "Enviando..." : "📷 Ler QR Code e concluir visita"}
           </button>
+          <p className="text-xs text-white/40 text-center m-0">Para concluir, leia de novo o QR Code de visita deste condomínio.</p>
+          {lendoQrConclusao && condominioId && (
+            <ConfirmarQrVisita
+              condominioId={condominioId}
+              aoCancelar={() => setLendoQrConclusao(false)}
+              aoConfirmar={(idLido) => {
+                setLendoQrConclusao(false);
+                concluirVisita(idLido);
+              }}
+            />
+          )}
         </div>
       )}
     </div>

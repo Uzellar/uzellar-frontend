@@ -33,6 +33,7 @@ const GRUPOS_ADMIN: Grupo[] = [
       { rota: "/localizacao-equipe", rotulo: "Localização da equipe" },
       { rota: "/visitas-operacionais", rotulo: "Visita da supervisão" },
       { rota: "/dashboard-supervisao", rotulo: "Dashboard de supervisão" },
+      { rota: "/material-apoio", rotulo: "Material de apoio" },
     ],
   },
   {
@@ -69,6 +70,7 @@ const GRUPOS_SUPERVISOR: Grupo[] = [
       { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
       { rota: "/relatorio-visitas", rotulo: "Relatório de visitas" },
       { rota: "/dashboard-supervisao", rotulo: "Meu dashboard" },
+      { rota: "/material-apoio", rotulo: "Material de apoio" },
     ],
   },
   { titulo: "Uniformes", itens: [{ rota: "/estoque/requisicoes", rotulo: "Requisições de uniforme" }] },

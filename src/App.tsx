@@ -22,6 +22,7 @@ import EstoqueRequisicoes from "./pages/EstoqueRequisicoes";
 import EstoqueRequisicaoNova from "./pages/EstoqueRequisicaoNova";
 import EstoqueRequisicaoDetalhe from "./pages/EstoqueRequisicaoDetalhe";
 import MapaRonda from "./pages/MapaRonda";
+import MaterialApoio from "./pages/MaterialApoio";
 import MapasRondaAdmin from "./pages/MapasRondaAdmin";
 import Veiculos from "./pages/Veiculos";
 import LocalizacaoEquipe from "./pages/LocalizacaoEquipe";
@@ -100,6 +101,16 @@ export default function App() {
           element={
             <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
               <LerQrVisita />
+            </RotaComPerfil>
+          }
+        />
+
+        {/* Material de apoio (11/2026) — Master gerencia, supervisor vê as pastas liberadas */}
+        <Route
+          path="/material-apoio"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <MaterialApoio />
             </RotaComPerfil>
           }
         />
