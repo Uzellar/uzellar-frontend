@@ -19,6 +19,7 @@ const GRUPOS_ADMIN: Grupo[] = [
   {
     titulo: "Condôminos",
     itens: [
+      { rota: "/dashboard-condominios", rotulo: "Dashboard de condôminos" },
       { rota: "/solicitacoes", rotulo: "Solicitações de condômino" },
       { rota: "/relatorios", rotulo: "Relatórios" },
     ],
@@ -61,7 +62,13 @@ const GRUPOS_ADMIN: Grupo[] = [
 // Supervisor: solicitações + relatório de visitas (sem QR Code,
 // telefones, cadastros ou relatórios de condôminos — só Admin Master).
 const GRUPOS_SUPERVISOR: Grupo[] = [
-  { titulo: "Condôminos", itens: [{ rota: "/solicitacoes", rotulo: "Solicitações de condômino" }] },
+  {
+    titulo: "Condôminos",
+    itens: [
+      { rota: "/dashboard-condominios", rotulo: "Dashboard de condôminos" },
+      { rota: "/solicitacoes", rotulo: "Solicitações de condômino" },
+    ],
+  },
   {
     titulo: "Supervisão",
     itens: [
@@ -81,7 +88,13 @@ const GRUPOS_ESTOQUE: Grupo[] = GRUPOS_ADMIN.filter((g) => g.titulo === "Estoque
 
 // Perfis antigos (Admin do Condomínio, Funcionário, Visualizador).
 const GRUPOS_BASICOS: Grupo[] = [
-  { titulo: "Condôminos", itens: [{ rota: "/solicitacoes", rotulo: "Solicitações de condômino" }] },
+  {
+    titulo: "Condôminos",
+    itens: [
+      { rota: "/dashboard-condominios", rotulo: "Dashboard de condôminos" },
+      { rota: "/solicitacoes", rotulo: "Solicitações de condômino" },
+    ],
+  },
 ];
 
 function gruposPorPerfil(): Grupo[] {
@@ -182,8 +195,6 @@ export default function NavAdmin() {
   const navegacao = (
     <>
       <nav style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-        {/* O Dashboard é dos condomínios — o Responsável pelo estoque não usa. */}
-        {!perfilEstaEm("ESTOQUE") && <LinkMenu item={{ rota: "/dashboard", rotulo: "Dashboard" }} ativo={pathname === "/dashboard"} />}
 
         {grupos.map((grupo) => {
           // O grupo da tela atual fica sempre aberto, mesmo que a pessoa

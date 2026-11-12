@@ -39,6 +39,15 @@ function RotaProtegida({ children }: { children: JSX.Element }) {
 // etc.) não devem acessar, mesmo digitando o endereço direto na
 // barra do navegador (a aba já fica escondida do menu, mas isso
 // sozinho não impede alguém de tentar acessar direto pela URL).
+// Tela inicial por perfil: Master e Supervisor abrem no dashboard de
+// visitas; Responsável pelo estoque no estoque; os demais no dashboard
+// dos condôminos.
+function TelaInicial() {
+  if (perfilEstaEm("ESTOQUE")) return <Navigate to="/estoque/uniformes" replace />;
+  if (perfilEstaEm("ADMIN_MASTER", "SUPERVISOR")) return <Navigate to="/dashboard-supervisao" replace />;
+  return <Navigate to="/dashboard-condominios" replace />;
+}
+
 function RotaAdminMaster({ children }: { children: JSX.Element }) {
   if (!getToken()) return <Navigate to="/login" replace />;
   if (!ehAdminMaster()) return <Navigate to="/dashboard" replace />;
@@ -151,8 +160,18 @@ export default function App() {
 
         {/* Painel administrativo */}
         <Route path="/login" element={<Login />} />
+        {/* "/dashboard" é a entrada do app (login, ícone instalado): manda
+            cada perfil para a sua tela inicial (12/11/2026). */}
         <Route
           path="/dashboard"
+          element={
+            <RotaProtegida>
+              <TelaInicial />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="/dashboard-condominios"
           element={
             <RotaProtegida>
               <Dashboard />

@@ -77,6 +77,16 @@ async function abrirArquivo(arquivo: Arquivo): Promise<void> {
   }
 }
 
+// Busca sem diferenciar maiúsculas, acentos e espaços repetidos.
+function normalizar(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function Selo({ texto }: { texto: string }) {
   return (
     <span className="inline-block text-[10px] font-bold uppercase tracking-wide text-white bg-[#FF3B3B] rounded-full px-2 py-0.5 ml-2 align-middle">
@@ -277,6 +287,7 @@ export default function MaterialApoio() {
   const [pastas, setPastas] = useState<Pasta[] | null>(null);
   const [supervisores, setSupervisores] = useState<Supervisor[]>([]);
   const [pastaAberta, setPastaAberta] = useState<Pasta | null>(null);
+  const [busca, setBusca] = useState("");
   const [arquivos, setArquivos] = useState<Arquivo[] | null>(null);
   const [formulario, setFormulario] = useState<"nova" | "editar" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -307,11 +318,13 @@ export default function MaterialApoio() {
     setErro(null);
     setFormulario(null);
     setArquivos(null);
+    setBusca("");
     setPastaAberta(p);
     carregarArquivos(p.id);
   };
 
   const voltar = () => {
+    setBusca("");
     setPastaAberta(null);
     setArquivos(null);
     setFormulario(null);
@@ -350,6 +363,15 @@ export default function MaterialApoio() {
       setErro((e as Error).message);
     }
   };
+
+  // Filtro da barra de pesquisa (pelo nome do arquivo; vários termos =
+  // todos precisam aparecer, em qualquer ordem).
+  const termos = normalizar(busca).split(" ").filter(Boolean);
+  const arquivosVisiveis = (arquivos ?? []).filter((a) => {
+    if (termos.length === 0) return true;
+    const nome = normalizar(a.nome);
+    return termos.every((t) => nome.includes(t));
+  });
 
   const nomesQueVeem = (p: Pasta) => {
     if (p.todosSupervisores) return "Todos os supervisores";
@@ -463,7 +485,26 @@ export default function MaterialApoio() {
               <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 pb-1 pt-3">
                 {arquivos === null && !erro && <p className="text-sm text-white/50">Carregando...</p>}
                 {arquivos?.length === 0 && <p className="text-sm text-white/50">Nenhum arquivo nesta pasta ainda.</p>}
-                {arquivos?.map((a) => (
+                {arquivos !== null && arquivos.length > 0 && (
+                  <div className="pb-3">
+                    <input
+                      type="search"
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                      placeholder="🔍 Pesquisar nesta pasta..."
+                      className={`${campo} w-full`}
+                    />
+                    {busca.trim() && (
+                      <p className="text-xs text-white/40 mt-2 mb-0">
+                        {arquivosVisiveis.length} de {arquivos.length} arquivo{arquivos.length === 1 ? "" : "s"}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {arquivos !== null && arquivos.length > 0 && arquivosVisiveis.length === 0 && (
+                  <p className="text-sm text-white/50">Nenhum arquivo encontrado para "{busca.trim()}".</p>
+                )}
+                {arquivosVisiveis.map((a) => (
                   <div key={a.id} className="py-3 border-t border-white/5 first:border-t-0 flex flex-wrap items-center justify-between gap-3">
                     <button type="button" onClick={() => abrir(a)} className="min-w-0 flex-1 text-left bg-transparent border-0 p-0 cursor-pointer">
                       <p className="m-0 text-sm font-semibold text-white break-words">
