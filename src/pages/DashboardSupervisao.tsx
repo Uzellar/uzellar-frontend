@@ -35,6 +35,63 @@ interface Indicadores {
   rankingCondominios?: { condominioId: string; nome: string; quantidade: number }[];
   individual?: boolean;
   turnosComVisitas?: Turno[];
+  porSemana?: {
+    semanas: string[];
+    supervisores: { nome: string; iniciadas: number[]; concluidas: number[]; total: number }[];
+  };
+}
+
+// Tabela "Visitas por semana" (só Admin Master): uma linha por supervisor,
+// uma coluna por semana (segunda a domingo). Mostra as visitas concluídas;
+// quando houve visita iniciada e não concluída, aparece "/N" (iniciadas).
+// Soma todos os turnos e condomínios — não muda com a aba escolhida.
+function TabelaPorSemana({ dados }: { dados: NonNullable<Indicadores["porSemana"]> }) {
+  const ultima = dados.semanas.length - 1;
+  const celula = { padding: "8px 6px", textAlign: "center" as const, borderTop: `1px solid ${CORES.borda}`, whiteSpace: "nowrap" as const };
+  if (dados.supervisores.length === 0) {
+    return <p style={{ fontSize: 12, color: CORES.textoMuted, margin: 0 }}>Nenhuma visita nas últimas 8 semanas.</p>;
+  }
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, color: CORES.texto, fontFamily: FONTES.corpo }}>
+        <thead>
+          <tr style={{ color: CORES.textoMuted }}>
+            <th style={{ ...celula, borderTop: "none", textAlign: "left" }}>Supervisor</th>
+            {dados.semanas.map((s, i) => (
+              <th key={s} style={{ ...celula, borderTop: "none", color: i === ultima ? "#60a5fa" : CORES.textoMuted }}>
+                {i === ultima ? "Esta semana" : s}
+              </th>
+            ))}
+            <th style={{ ...celula, borderTop: "none" }}>Média/sem.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dados.supervisores.map((sup) => (
+            <tr key={sup.nome}>
+              <td style={{ ...celula, textAlign: "left", fontWeight: 600 }}>{sup.nome}</td>
+              {sup.concluidas.map((c, i) => {
+                const iniciadas = sup.iniciadas[i];
+                return (
+                  <td
+                    key={i}
+                    title={`${c} concluída${c === 1 ? "" : "s"} de ${iniciadas} iniciada${iniciadas === 1 ? "" : "s"}`}
+                    style={{ ...celula, background: i === ultima ? "rgba(96,165,250,0.08)" : undefined, color: c === 0 ? CORES.textoMuted : CORES.texto }}
+                  >
+                    {c}
+                    {iniciadas > c && <span style={{ color: CORES.textoMuted, fontSize: 11 }}>/{iniciadas}</span>}
+                  </td>
+                );
+              })}
+              <td style={{ ...celula, fontWeight: 700 }}>{(sup.total / dados.semanas.length).toFixed(1).replace(".", ",")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p style={{ fontSize: 11, color: CORES.textoMuted, margin: "8px 0 0" }}>
+        Visitas concluídas por semana (segunda a domingo), todos os turnos e condomínios. "/N" = visitas iniciadas na semana, quando alguma não foi concluída.
+      </p>
+    </div>
+  );
 }
 
 // Lista com barra proporcional — usada no ranking e nos supervisores.
@@ -326,6 +383,14 @@ export default function DashboardSupervisao() {
             </PainelCard>
             )}
           </div>
+
+          {!individual && dados.porSemana && (
+            <div style={{ marginTop: 16 }}>
+              <PainelCard titulo="Visitas por semana — por supervisor">
+                <TabelaPorSemana dados={dados.porSemana} />
+              </PainelCard>
+            </div>
+          )}
           </div>
         </div>
       </div>
