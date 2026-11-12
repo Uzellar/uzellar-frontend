@@ -52,6 +52,14 @@ export default function SolicitacaoForm() {
   const assinaturaVazia = useRef(true);
 
   useEffect(() => {
+    const anterior = document.title;
+    document.title = "Solicita Rápido · Ulrik";
+    return () => {
+      document.title = anterior;
+    };
+  }, []);
+
+  useEffect(() => {
     // Busca os dados do condomínio (nome, logo, serviços ativos e a
     // lista de ambientes) para preencher o formulário automaticamente.
     fetch(`${API_URL}/api/condominios/${condominioId}/publico`)
@@ -200,7 +208,10 @@ export default function SolicitacaoForm() {
             <p className="text-xs text-white/50 leading-tight">Registrar solicitação</p>
           </div>
         </div>
-        <img src={logoUlrik} alt="Ulrik" className="h-5 w-auto" />
+        <div className="flex flex-col items-end shrink-0">
+          <img src={logoUlrik} alt="Ulrik" className="h-5 w-auto" />
+          <p className="text-[10px] font-semibold text-[#FF3B3B] leading-tight mt-1 whitespace-nowrap">Solicita Rápido</p>
+        </div>
       </header>
 
       <div className="px-5 py-5 space-y-6">
