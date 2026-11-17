@@ -21,6 +21,7 @@ import EstoqueCadastros from "./pages/EstoqueCadastros";
 import EstoqueRequisicoes from "./pages/EstoqueRequisicoes";
 import EstoqueRequisicaoNova from "./pages/EstoqueRequisicaoNova";
 import EstoqueRequisicaoDetalhe from "./pages/EstoqueRequisicaoDetalhe";
+import EstoqueDashboard from "./pages/EstoqueDashboard";
 import MapaRonda from "./pages/MapaRonda";
 import MaterialApoio from "./pages/MaterialApoio";
 import Sugestoes from "./pages/Sugestoes";
@@ -255,6 +256,14 @@ export default function App() {
         />
 
         {/* Estoque de uniformes — Admin Master e Responsável pelo estoque */}
+        <Route
+          path="/estoque/dashboard"
+          element={
+            <RotaComPerfil perfis={PERFIS_ESTOQUE}>
+              <EstoqueDashboard />
+            </RotaComPerfil>
+          }
+        />
         <Route
           path="/estoque/uniformes"
           element={

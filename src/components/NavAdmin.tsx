@@ -40,6 +40,7 @@ const GRUPOS_ADMIN: Grupo[] = [
   {
     titulo: "Estoque de uniformes",
     itens: [
+      { rota: "/estoque/dashboard", rotulo: "Dashboard do estoque" },
       { rota: "/estoque/requisicoes", rotulo: "Requisições" },
       { rota: "/estoque/uniformes", rotulo: "Uniformes e saldo" },
       { rota: "/estoque/entradas", rotulo: "Entradas" },
