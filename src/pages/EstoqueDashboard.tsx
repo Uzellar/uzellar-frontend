@@ -83,6 +83,7 @@ const COR_ENTRADA = "#22c55e";
 const COR_SAIDA = "#f59e0b";
 const COR_SETOR: Record<string, string> = { PUBLICO: "#60a5fa", PRIVADO: "#FF3B3B", SEM_SETOR: "#8a8a8a" };
 const numero = (n: number) => n.toLocaleString("pt-BR");
+const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 const estiloTooltip = { background: "#1a1a1a", border: `1px solid ${CORES.borda}`, borderRadius: 10, fontSize: 12 };
 
 function Indicador({ rotulo, valor, detalhe, destaque }: { rotulo: string; valor: string; detalhe?: string; destaque?: boolean }) {
@@ -141,6 +142,7 @@ export default function EstoqueDashboard() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [soBaixo, setSoBaixo] = useState(false);
+  const [buscaSaldo, setBuscaSaldo] = useState("");
   const [verValores, setVerValores] = useState(false);
 
   // Opções dos filtros (inclui inativos: o histórico pode ter saídas para eles).
@@ -180,8 +182,20 @@ export default function EstoqueDashboard() {
   const saldoAgrupado = useMemo(() => {
     if (!dados) return [];
     const grupos = new Map<string, Dados["saldo"]>();
+    // Pesquisa sem acento/maiúscula (ex.: "camisa curta g", "sapato 38").
+    // Palavra igual a um tamanho existente (G, GG, 38...) filtra o tamanho;
+    // as demais precisam aparecer no nome do uniforme.
+    const termos = semAcento(buscaSaldo).split(/\s+/).filter(Boolean);
+    const tamanhos = new Set(dados.saldo.map((u) => semAcento(u.tamanho)));
+    const termosTamanho = termos.filter((t) => tamanhos.has(t));
+    const termosNome = termos.filter((t) => !tamanhos.has(t));
     for (const u of dados.saldo) {
       if (soBaixo && !u.estoqueBaixo) continue;
+      if (termos.length) {
+        const nome = semAcento(u.nome);
+        if (!termosNome.every((t) => nome.includes(t))) continue;
+        if (termosTamanho.length && !termosTamanho.includes(semAcento(u.tamanho))) continue;
+      }
       grupos.set(u.nome, [...(grupos.get(u.nome) ?? []), u]);
     }
     return [...grupos.entries()].map(([nome, tamanhos]) => ({
@@ -190,7 +204,7 @@ export default function EstoqueDashboard() {
       total: tamanhos.reduce((t, x) => t + x.saldo, 0),
       baixos: tamanhos.filter((x) => x.estoqueBaixo).length,
     }));
-  }, [dados, soBaixo]);
+  }, [dados, soBaixo, buscaSaldo]);
 
   const filtroSaidas = !!setor || !!contratoId;
   const textoPeriodo = mes === null ? `Ano de ${ano}` : `${MESES[mes]} de ${ano}`;
@@ -398,8 +412,35 @@ export default function EstoqueDashboard() {
               </label>
             }
           >
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14 }}>
+              <input
+                type="search"
+                placeholder="Pesquisar uniforme ou tamanho (ex.: camisa curta G, sapato 38)"
+                value={buscaSaldo}
+                onChange={(e) => setBuscaSaldo(e.target.value)}
+                style={{ ...estiloCampo, flex: 1 }}
+              />
+              {buscaSaldo && (
+                <button onClick={() => setBuscaSaldo("")} style={estiloBotaoPequeno}>
+                  Limpar
+                </button>
+              )}
+            </div>
+            {buscaSaldo && saldoAgrupado.length > 0 && (
+              <p style={{ fontSize: 11, color: "#8a8a8a", margin: "-6px 0 12px" }}>
+                {saldoAgrupado.reduce((t, g) => t + g.tamanhos.length, 0)} item(ns) · {numero(saldoAgrupado.reduce((t, g) => t + g.total, 0))} pç
+              </p>
+            )}
             {saldoAgrupado.length === 0 ? (
-              <Vazio texto={soBaixo ? "Nenhum item com estoque baixo." : "Nenhum uniforme ativo cadastrado."} />
+              <Vazio
+                texto={
+                  buscaSaldo
+                    ? "Nenhum uniforme encontrado com essa pesquisa."
+                    : soBaixo
+                      ? "Nenhum item com estoque baixo."
+                      : "Nenhum uniforme ativo cadastrado."
+                }
+              />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {saldoAgrupado.map((g) => (
