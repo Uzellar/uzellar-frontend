@@ -22,6 +22,7 @@ import EstoqueRequisicoes from "./pages/EstoqueRequisicoes";
 import EstoqueRequisicaoNova from "./pages/EstoqueRequisicaoNova";
 import EstoqueRequisicaoDetalhe from "./pages/EstoqueRequisicaoDetalhe";
 import EstoqueDashboard from "./pages/EstoqueDashboard";
+import EstoqueRelatorios from "./pages/EstoqueRelatorios";
 import MapaRonda from "./pages/MapaRonda";
 import MaterialApoio from "./pages/MaterialApoio";
 import Sugestoes from "./pages/Sugestoes";
@@ -261,6 +262,14 @@ export default function App() {
           element={
             <RotaComPerfil perfis={PERFIS_ESTOQUE}>
               <EstoqueDashboard />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/estoque/relatorios"
+          element={
+            <RotaComPerfil perfis={PERFIS_ESTOQUE}>
+              <EstoqueRelatorios />
             </RotaComPerfil>
           }
         />

@@ -46,6 +46,7 @@ const GRUPOS_ADMIN: Grupo[] = [
       { rota: "/estoque/entradas", rotulo: "Entradas" },
       { rota: "/estoque/saidas", rotulo: "Saídas" },
       { rota: "/estoque/historico", rotulo: "Histórico de movimentações" },
+      { rota: "/estoque/relatorios", rotulo: "Relatórios do estoque" },
       { rota: "/estoque/fornecedores", rotulo: "Fornecedores" },
       { rota: "/estoque/contratos", rotulo: "Contratos" },
     ],
