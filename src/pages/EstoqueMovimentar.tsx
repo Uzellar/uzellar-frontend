@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import EstoquePagina, { Campo } from "../components/EstoquePagina";
+import SeletorUniforme from "../components/SeletorUniforme";
 import {
   SETOR_LABEL,
   apiEstoque,
@@ -89,13 +90,6 @@ export default function EstoqueMovimentar({ tipo }: { tipo: "ENTRADA" | "SAIDA" 
   // setor cadastrado, vale o setor do contrato.
   const setorPrevisto: Setor | null = usuarioSolicitante?.setor ?? contrato?.setor ?? null;
 
-  // Uniformes agrupados por nome na lista (Camisa operacional → P, M, G...)
-  const grupos = useMemo(() => {
-    const mapa = new Map<string, Uniforme[]>();
-    for (const u of uniformes) mapa.set(u.nome, [...(mapa.get(u.nome) ?? []), u]);
-    return [...mapa.entries()];
-  }, [uniformes]);
-
   const escolherUniforme = (id: string) => {
     setUniformeId(id);
     const u = uniformes.find((x) => x.id === id);
@@ -181,20 +175,7 @@ export default function EstoqueMovimentar({ tipo }: { tipo: "ENTRADA" | "SAIDA" 
         <>
           <div style={estiloCartao}>
             <div style={estiloGrade}>
-              <Campo rotulo="Uniforme e tamanho *">
-                <select value={uniformeId} onChange={(e) => escolherUniforme(e.target.value)} style={estiloCampo}>
-                  <option value="">Escolha...</option>
-                  {grupos.map(([nome, itens]) => (
-                    <optgroup key={nome} label={nome}>
-                      {itens.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nome} · {u.tamanho} (saldo {u.saldo})
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </Campo>
+              <SeletorUniforme rotulo="Uniforme e tamanho *" uniformes={uniformes} valor={uniformeId} onChange={escolherUniforme} />
               <Campo rotulo={entrada ? "Quantidade recebida *" : "Quantidade retirada *"}>
                 <input value={quantidade} onChange={(e) => setQuantidade(e.target.value)} inputMode="numeric" placeholder="0" style={estiloCampo} />
               </Campo>

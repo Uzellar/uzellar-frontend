@@ -6,3 +6,18 @@ body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
+
+/* Telas do Estoque de uniformes: listas de opções (<select>) escuras.
+   Sem isso, no Windows a lista abria branca com letras brancas. */
+.uz-estoque select {
+  color-scheme: dark;
+}
+.uz-estoque select option,
+.uz-estoque select optgroup {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+.uz-estoque select optgroup {
+  color: #a8a8a8;
+  font-weight: 700;
+}

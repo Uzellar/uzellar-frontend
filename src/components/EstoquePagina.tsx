@@ -18,7 +18,7 @@ export default function EstoquePagina({
   largura?: number;
 }) {
   return (
-    <div style={{ background: "#0a0a0a", minHeight: "100vh", color: "#fff", display: "flex" }}>
+    <div className="uz-estoque" style={{ background: "#0a0a0a", minHeight: "100vh", color: "#fff", display: "flex" }}>
       <NavAdmin />
       <div style={{ flex: 1, padding: "2rem 1rem", minWidth: 0 }}>
         <div style={{ maxWidth: largura, margin: "0 auto" }}>
