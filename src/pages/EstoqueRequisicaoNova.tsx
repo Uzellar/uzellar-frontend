@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EstoquePagina, { Campo } from "../components/EstoquePagina";
+import { CampoContrato, SeletorPesquisa } from "../components/PesquisaEstoque";
 import {
   MOTIVO_REQUISICAO_LABEL,
   SETOR_LABEL,
@@ -72,6 +73,24 @@ export default function EstoqueRequisicaoNova() {
     return mapa;
   }, [catalogo]);
 
+  // Opções do campo "Uniforme" (com pesquisa): nome + quantos tamanhos têm estoque.
+  const opcoesUniforme = useMemo(
+    () =>
+      [...porNome.entries()].map(([nome, lista]) => {
+        const comEstoque = lista.filter((t) => t.disponivel).length;
+        return {
+          valor: nome,
+          rotulo: nome,
+          detalhe: (
+            <span style={{ color: comEstoque ? "#22c55e" : "#f87171" }}>
+              {comEstoque ? `${comEstoque} de ${lista.length} tam. disponíve${comEstoque === 1 ? "l" : "is"}` : "em falta"}
+            </span>
+          ),
+        };
+      }),
+    [porNome],
+  );
+
   // Ao digitar o nome de um contrato que já existe, já sugere o setor dele.
   const escolherContrato = (nome: string) => {
     setContratoNome(nome);
@@ -133,22 +152,7 @@ export default function EstoqueRequisicaoNova() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={estiloCartao}>
             <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 10px" }}>1. Contrato, colaborador, setor e motivo</p>
-            <Campo rotulo="Nome do contrato">
-              <input
-                value={contratoNome}
-                onChange={(e) => escolherContrato(e.target.value)}
-                list="contratos-existentes"
-                placeholder="Digite o nome do contrato"
-                maxLength={150}
-                style={estiloCampo}
-              />
-            </Campo>
-            {/* Sugestões dos contratos já usados (evita o mesmo contrato com nomes diferentes). */}
-            <datalist id="contratos-existentes">
-              {catalogo.contratos.map((c) => (
-                <option key={c.id} value={c.nome} />
-              ))}
-            </datalist>
+            <CampoContrato rotulo="Nome do contrato" valor={contratoNome} onChange={escolherContrato} contratos={catalogo.contratos} />
 
             <div style={{ marginTop: 12 }}>
               <Campo rotulo="Nome do colaborador">
@@ -216,19 +220,17 @@ export default function EstoqueRequisicaoNova() {
                 return (
                   <div key={l.chave} style={{ borderTop: idx ? "1px solid rgba(255,255,255,0.06)" : "none", paddingTop: idx ? 12 : 0 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 90px auto", gap: 8, alignItems: "end" }}>
-                      <Campo rotulo="Uniforme">
-                        <select
-                          value={l.nome}
-                          onChange={(e) => {
-                            const lista = porNome.get(e.target.value) ?? [];
-                            mudar(l.chave, { nome: e.target.value, uniformeId: lista.length === 1 ? lista[0].id : "" });
-                          }}
-                          style={estiloCampo}
-                        >
-                          <option value="">Escolha...</option>
-                          {[...porNome.keys()].map((n) => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                      </Campo>
+                      <SeletorPesquisa
+                        rotulo="Uniforme"
+                        opcoes={opcoesUniforme}
+                        valor={l.nome}
+                        onChange={(nome) => {
+                          const lista = porNome.get(nome) ?? [];
+                          mudar(l.chave, { nome, uniformeId: lista.length === 1 ? lista[0].id : "" });
+                        }}
+                        placeholderBusca="🔍 Pesquisar uniforme..."
+                        vazio="Nenhum uniforme encontrado."
+                      />
                       <Campo rotulo="Qtd.">
                         <input value={l.quantidade} onChange={(e) => mudar(l.chave, { quantidade: e.target.value })} inputMode="numeric" style={estiloCampo} />
                       </Campo>
