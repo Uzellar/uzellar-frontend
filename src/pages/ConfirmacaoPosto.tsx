@@ -875,6 +875,204 @@ function JanelaRemanejar({ linha, data, onFechar, onSalvo }: { linha: LinhaColab
   );
 }
 
+// ---------------- cadastrar iniciante ----------------
+
+function JanelaNovoIniciante({
+  postoInicial,
+  aba,
+  data,
+  onFechar,
+  onSalvo,
+}: {
+  postoInicial: { id: string; nome: string } | null;
+  aba: Aba;
+  data: string;
+  onFechar: () => void;
+  onSalvo: () => void;
+}) {
+  const [postos, setPostos] = useState<{ id: string; nome: string }[] | null>(null);
+  const [busca, setBusca] = useState("");
+  const [destino, setDestino] = useState<{ id: string; nome: string } | null>(postoInicial);
+  const [vagas, setVagas] = useState<{ id: string; rotulo: string }[]>([]);
+  const [vagaId, setVagaId] = useState("");
+  const [nome, setNome] = useState("");
+  const [matricula, setMatricula] = useState("");
+  const [inicio, setInicio] = useState(data);
+  const [area, setArea] = useState(aba === "LIMPEZA" ? "LIMPEZA" : "PORTARIA");
+  const [turno, setTurno] = useState(aba === "NOTURNO" ? "NOTURNO" : "DIURNO");
+  const [regra, setRegra] = useState("IMPAR");
+  const [referencia, setReferencia] = useState("");
+  const [horario, setHorario] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const pedeReferencia = REGRAS.find((r) => r.valor === regra)?.referencia;
+
+  useEffect(() => {
+    if (postoInicial) return;
+    Promise.all(ABAS.map((a) => apiPostos<{ postos: PostoResumo[] }>(`/lista?data=${data}&aba=${a.aba}`).catch(() => ({ postos: [] as PostoResumo[] }))))
+      .then((rs) => {
+        const mapa = new Map<string, string>();
+        rs.forEach((r) => r.postos.filter((p) => p.tipo !== "RESERVA").forEach((p) => mapa.set(p.id, p.nome)));
+        setPostos([...mapa.entries()].map(([id, n]) => ({ id, nome: n })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+      })
+      .catch(() => setPostos([]));
+  }, [data, postoInicial]);
+
+  useEffect(() => {
+    setVagas([]);
+    setVagaId("");
+    if (!destino) return;
+    apiPostos<ColabPosto[]>(`/postos/${destino.id}/colaboradores`)
+      .then((lista) => {
+        const nomes = new Map(lista.map((c) => [c.id, c.nome]));
+        setVagas(
+          lista
+            .filter((c) => c.vaga && c.situacao !== "SAIU")
+            .map((c) => ({
+              id: c.id,
+              rotulo: `vaga${c.substituiId && nomes.get(c.substituiId) ? ` de ${nomes.get(c.substituiId)}` : ""} (${ROTULO_AREA[c.area] ?? c.area}, ${c.turno === "NOTURNO" ? "noturno" : "diurno"})`,
+            })),
+        );
+      })
+      .catch(() => setVagas([]));
+  }, [destino]);
+
+  const filtrados = useMemo(() => {
+    const termo = normalizarBusca(busca);
+    return (postos ?? []).filter((p) => !termo || normalizarBusca(p.nome).includes(termo)).slice(0, 8);
+  }, [postos, busca]);
+
+  const salvar = async () => {
+    setErro(null);
+    if (!nome.trim()) return setErro("Informe o nome do iniciante.");
+    if (!destino) return setErro("Escolha o posto.");
+    if (!inicio) return setErro("Informe a data de início.");
+    setSalvando(true);
+    try {
+      if (vagaId) {
+        await apiPostos(`/colaboradores/${vagaId}/iniciante`, {
+          method: "POST",
+          body: JSON.stringify({ nome: nome.trim(), inicio, ...(matricula.trim() ? { matricula: matricula.trim() } : {}) }),
+        });
+      } else {
+        await apiPostos("/colaboradores", {
+          method: "POST",
+          body: JSON.stringify({
+            postoId: destino.id,
+            nome: nome.trim(),
+            ...(matricula.trim() ? { matricula: matricula.trim() } : {}),
+            area,
+            turno,
+            regraDias: regra,
+            ...(pedeReferencia && referencia ? { dataReferencia: referencia } : {}),
+            ...(horario.trim() ? { horario: horario.trim() } : {}),
+            inicioEm: inicio,
+            iniciante: true,
+          }),
+        });
+      }
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Janela titulo="Cadastrar iniciante" onFechar={onFechar}>
+      <Rotulo>Nome</Rotulo>
+      <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo" className={estiloCampo} maxLength={120} />
+      <Rotulo>Matrícula (opcional)</Rotulo>
+      <input value={matricula} onChange={(e) => setMatricula(e.target.value)} className={estiloCampo} maxLength={30} />
+
+      <Rotulo>Posto</Rotulo>
+      {destino ? (
+        <div className="rounded-lg border px-3 py-2 flex items-center justify-between gap-2" style={{ borderColor: "rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.10)" }}>
+          <span className="text-sm text-white font-semibold">{destino.nome}</span>
+          {!postoInicial && (
+            <button type="button" onClick={() => setDestino(null)} className="text-[11px] text-white/60 underline shrink-0">
+              Trocar
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar condomínio / posto" className={estiloCampo} />
+          <div className="mt-1 rounded-lg border border-white/10" style={{ maxHeight: 220, overflowY: "auto" }}>
+            {postos === null && <p className="text-xs text-white/50 p-3 m-0">Carregando...</p>}
+            {filtrados.map((p) => (
+              <button key={p.id} type="button" onClick={() => setDestino(p)} className="w-full text-left px-3 py-2 border-b border-white/5 text-sm text-white">
+                {p.nome}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {destino && vagas.length > 0 && (
+        <>
+          <Rotulo>Como entra no posto</Rotulo>
+          <select value={vagaId} onChange={(e) => setVagaId(e.target.value)} className={estiloCampo}>
+            <option value="">Nova pessoa no posto</option>
+            {vagas.map((v) => (
+              <option key={v.id} value={v.id}>
+                Ocupar a {v.rotulo}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
+      <Rotulo>Começa em</Rotulo>
+      <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={estiloCampo} style={{ colorScheme: "dark" }} />
+
+      {destino && !vagaId && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Rotulo>Área</Rotulo>
+              <select value={area} onChange={(e) => setArea(e.target.value)} className={estiloCampo}>
+                <option value="PORTARIA">Portaria</option>
+                <option value="ZELADORIA">Zeladoria e Manutenção</option>
+                <option value="LIMPEZA">Limpeza</option>
+              </select>
+            </div>
+            <div>
+              <Rotulo>Turno</Rotulo>
+              <select value={turno} onChange={(e) => setTurno(e.target.value)} className={estiloCampo}>
+                <option value="DIURNO">Diurno</option>
+                <option value="NOTURNO">Noturno</option>
+              </select>
+            </div>
+          </div>
+          <Rotulo>Escala</Rotulo>
+          <select value={regra} onChange={(e) => setRegra(e.target.value)} className={estiloCampo}>
+            {REGRAS.map((r) => (
+              <option key={r.valor} value={r.valor}>
+                {r.rotulo}
+              </option>
+            ))}
+          </select>
+          {pedeReferencia && (
+            <>
+              <Rotulo>{pedeReferencia}</Rotulo>
+              <input type="date" value={referencia} onChange={(e) => setReferencia(e.target.value)} className={estiloCampo} style={{ colorScheme: "dark" }} />
+            </>
+          )}
+          <Rotulo>Horário (opcional)</Rotulo>
+          <input value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex.: 06:00-18:00" className={estiloCampo} maxLength={60} />
+        </>
+      )}
+      {destino && vagaId && <p className="text-[11px] text-white/50 mt-2 mb-0">Ocupando a vaga, o iniciante assume a escala e o horário de quem saiu.</p>}
+
+      {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
+      <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
+        {salvando ? "Salvando..." : "Cadastrar iniciante"}
+      </button>
+    </Janela>
+  );
+}
+
 // ---------------- cartão do colaborador ----------------
 
 type Acao =
@@ -882,6 +1080,7 @@ type Acao =
   | { tipo: "recolhimento"; linha: LinhaColaborador }
   | { tipo: "iniciante"; linha: LinhaColaborador }
   | { tipo: "remanejar"; linha: LinhaColaborador }
+  | { tipo: "novoIniciante"; posto: { id: string; nome: string } | null }
   | { tipo: "cadastro"; linha: LinhaColaborador | null };
 
 function CartaoColaborador({
@@ -961,6 +1160,11 @@ function CartaoColaborador({
           {reg && (
             <span className="text-[11px] font-bold rounded-full px-2 py-0.5" style={{ color: cor?.texto, border: `1px solid ${cor?.borda}` }}>
               {ROTULO_STATUS[reg.status] ?? reg.status}
+            </span>
+          )}
+          {linha.iniciante && (
+            <span className="text-[10px] font-bold rounded-full px-2 py-0.5" style={{ color: "#fbbf24", border: "1px solid rgba(251,191,36,0.5)" }}>
+              🆕 Iniciante
             </span>
           )}
           {!reg && folga && <span className="text-[11px] text-white/50">Folga pela escala</span>}
@@ -1250,6 +1454,14 @@ export default function ConfirmacaoPosto() {
 
           {!postoId && (
             <>
+              <button
+                type="button"
+                onClick={() => setAcao({ tipo: "novoIniciante", posto: null })}
+                className="w-full h-11 rounded-xl mb-3 text-sm font-bold"
+                style={{ background: "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.45)", color: "#fbbf24" }}
+              >
+                ＋ Cadastrar iniciante
+              </button>
               <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔎 Pesquisar condomínio / posto" className={`${estiloCampo} mb-3`} />
               {postos && postos.length > 0 && (
                 <p className="text-xs text-white/50 mt-0 mb-3">
@@ -1328,10 +1540,10 @@ export default function ConfirmacaoPosto() {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setAcao({ tipo: "cadastro", linha: null })}
+                    onClick={() => setAcao({ tipo: "novoIniciante", posto: { id: dia.posto.id, nome: dia.posto.nome } })}
                     className="w-full h-11 rounded-xl border border-dashed border-white/20 text-white/70 text-sm mt-3"
                   >
-                    + Incluir colaborador neste posto
+                    ＋ Cadastrar iniciante neste posto
                   </button>
                 </>
               )}
@@ -1344,6 +1556,7 @@ export default function ConfirmacaoPosto() {
       {acao?.tipo === "recolhimento" && <JanelaRecolhimento linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "iniciante" && <JanelaIniciante linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "remanejar" && <JanelaRemanejar linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "novoIniciante" && <JanelaNovoIniciante postoInicial={acao.posto} aba={aba} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "cadastro" && postoId && (
         <JanelaCadastro linha={acao.linha} postoId={postoId} ehReserva={dia?.posto.tipo === "RESERVA"} aba={aba} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />
       )}
