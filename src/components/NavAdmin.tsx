@@ -28,6 +28,7 @@ const GRUPOS_ADMIN: Grupo[] = [
     titulo: "Supervisão",
     itens: [
       { rota: "/registrar-visita", rotulo: "Registrar visita" },
+      { rota: "/confirmacao-posto", rotulo: "Confirmação de posto" },
       { rota: "/rotas", rotulo: "Condomínios e rotas" },
       { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
       { rota: "/mapas-ronda", rotulo: "Controle de mapas de ronda" },
@@ -76,6 +77,7 @@ const GRUPOS_SUPERVISOR: Grupo[] = [
     titulo: "Supervisão",
     itens: [
       { rota: "/registrar-visita", rotulo: "Registrar visita" },
+      { rota: "/confirmacao-posto", rotulo: "Confirmação de posto" },
       { rota: "/rotas", rotulo: "Condomínios e rotas" },
       { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
       { rota: "/relatorio-visitas", rotulo: "Relatório de visitas" },
