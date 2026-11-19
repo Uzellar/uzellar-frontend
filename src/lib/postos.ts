@@ -107,6 +107,7 @@ export interface PostoResumo {
 export interface ReservaOpcao {
   id: string;
   nome: string;
+  matricula?: string | null;
   area: string;
   turno: string;
   horario: string | null;
