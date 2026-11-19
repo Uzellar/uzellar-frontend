@@ -1,0 +1,1022 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import NavAdmin from "../components/NavAdmin";
+import { CORES, FONTES } from "../theme";
+import { normalizarBusca } from "../components/SeletorCondominio";
+import {
+  ABAS,
+  CORES_STATUS,
+  REGRAS,
+  ROTULO_AREA,
+  ROTULO_COBERTURA,
+  ROTULO_STATUS,
+  apiPostos,
+  corDoStatus,
+  dataBr,
+  diaDaSemana,
+  hojeBrasilia,
+  moeda,
+  rotuloRegra,
+  somarDias,
+} from "../lib/postos";
+import type { Aba, LinhaColaborador, PostoResumo, ReservaOpcao, Status, TipoCobertura } from "../lib/postos";
+
+// Confirmação de posto operacional (11/2026). O supervisor escolhe a aba
+// (Diurno, Limpeza ou Noturno), o posto e confirma cada colaborador do
+// plantão: verde = confirmado; vermelho = falta, recolhimento ou posto vago.
+
+const CHAVE_ABA = "uzellar_posto_aba";
+
+function lerAba(): Aba {
+  try {
+    const v = localStorage.getItem(CHAVE_ABA);
+    if (v === "DIURNO" || v === "LIMPEZA" || v === "NOTURNO") return v;
+  } catch {
+    // sem armazenamento
+  }
+  return "DIURNO";
+}
+
+const estiloCampo = "w-full h-11 rounded-lg bg-white/5 border border-white/15 px-3 text-sm text-white outline-none focus:border-white/40";
+
+// ---------------- janela (modal) ----------------
+
+function Janela({ titulo, onFechar, children }: { titulo: string; onFechar: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => e.key === "Escape" && onFechar();
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [onFechar]);
+  return (
+    <div
+      onClick={onFechar}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 12 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="uz-estoque"
+        style={{
+          background: CORES.superficie2,
+          border: `1px solid ${CORES.borda}`,
+          borderRadius: 16,
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "92vh",
+          overflowY: "auto",
+          padding: 18,
+          marginBottom: "env(safe-area-inset-bottom, 0px)",
+          alignSelf: "center",
+        }}
+      >
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <p className="text-white font-bold m-0" style={{ fontSize: 17, fontFamily: FONTES.titulo }}>
+            {titulo}
+          </p>
+          <button type="button" onClick={onFechar} aria-label="Fechar" className="text-white/60 text-xl leading-none px-2">
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Rotulo({ children }: { children: ReactNode }) {
+  return <p className="text-xs text-white/60 mt-3 mb-1">{children}</p>;
+}
+
+// ---------------- cobertura (falta / posto vago) ----------------
+
+function EscolhaCobertura({
+  data,
+  tipo,
+  setTipo,
+  reservaId,
+  setReservaId,
+  nomeFree,
+  setNomeFree,
+  valorFree,
+  setValorFree,
+}: {
+  data: string;
+  tipo: TipoCobertura | null;
+  setTipo: (t: TipoCobertura) => void;
+  reservaId: string | null;
+  setReservaId: (id: string) => void;
+  nomeFree: string;
+  setNomeFree: (v: string) => void;
+  valorFree: string;
+  setValorFree: (v: string) => void;
+}) {
+  const [reservas, setReservas] = useState<ReservaOpcao[] | null>(null);
+  const [busca, setBusca] = useState("");
+  const [sugestoes, setSugestoes] = useState<{ nome: string; vezes: number }[]>([]);
+
+  useEffect(() => {
+    if (tipo !== "RESERVA" || reservas) return;
+    apiPostos<ReservaOpcao[]>(`/reserva?data=${data}`)
+      .then(setReservas)
+      .catch(() => setReservas([]));
+  }, [tipo, reservas, data]);
+
+  useEffect(() => {
+    if (tipo !== "FREELANCER") return;
+    const t = setTimeout(() => {
+      apiPostos<{ nome: string; vezes: number }[]>(`/freelancers?q=${encodeURIComponent(nomeFree.trim())}`)
+        .then(setSugestoes)
+        .catch(() => setSugestoes([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [tipo, nomeFree]);
+
+  const filtradas = useMemo(() => {
+    const termo = normalizarBusca(busca);
+    return (reservas ?? []).filter((r) => !termo || normalizarBusca(r.nome).includes(termo));
+  }, [reservas, busca]);
+
+  const opcoes: { valor: TipoCobertura; rotulo: string }[] = [
+    { valor: "RESERVA", rotulo: "Reserva Técnica" },
+    { valor: "FREELANCER", rotulo: "Free lancer" },
+    { valor: "SEM_COBERTURA", rotulo: "Sem cobertura" },
+  ];
+
+  return (
+    <>
+      <Rotulo>Quem cobriu?</Rotulo>
+      <div className="grid grid-cols-3 gap-2">
+        {opcoes.map((o) => (
+          <button
+            key={o.valor}
+            type="button"
+            onClick={() => setTipo(o.valor)}
+            className={`h-11 rounded-lg text-xs font-semibold border ${tipo === o.valor ? "bg-white/15 border-white/50 text-white" : "border-white/15 text-white/70"}`}
+          >
+            {o.rotulo}
+          </button>
+        ))}
+      </div>
+
+      {tipo === "RESERVA" && (
+        <div className="mt-3">
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar na Reserva Técnica" className={estiloCampo} />
+          <div className="mt-2 rounded-lg border border-white/10" style={{ maxHeight: 240, overflowY: "auto" }}>
+            {reservas === null && <p className="text-xs text-white/50 p-3 m-0">Carregando...</p>}
+            {reservas?.length === 0 && <p className="text-xs text-white/50 p-3 m-0">Ninguém na Reserva Técnica neste dia.</p>}
+            {filtradas.map((r) => {
+              const escolhido = r.id === reservaId;
+              const ocupado = !!r.cobrindo && !escolhido;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => setReservaId(r.id)}
+                  className={`w-full text-left px-3 py-2 border-b border-white/5 ${escolhido ? "bg-emerald-500/15" : ""} ${ocupado ? "opacity-40" : ""}`}
+                >
+                  <span className="block text-sm text-white">
+                    {escolhido ? "✓ " : ""}
+                    {r.nome}
+                  </span>
+                  <span className="block text-[11px] text-white/50">
+                    {ROTULO_AREA[r.area] ?? r.area} · {r.turno === "NOTURNO" ? "Noturno" : "Diurno"}
+                    {r.horario ? ` · ${r.horario}` : ""}
+                    {r.cobrindo ? ` · já cobrindo ${r.cobrindo}` : r.plantao === false ? " · de folga pela escala" : ""}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tipo === "FREELANCER" && (
+        <div className="mt-3">
+          <input value={nomeFree} onChange={(e) => setNomeFree(e.target.value)} placeholder="Nome do free lancer" className={estiloCampo} maxLength={120} />
+          {sugestoes.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {sugestoes
+                .filter((s) => normalizarBusca(s.nome) !== normalizarBusca(nomeFree))
+                .slice(0, 6)
+                .map((s) => (
+                  <button key={s.nome} type="button" onClick={() => setNomeFree(s.nome)} className="h-8 px-3 rounded-full border border-white/15 text-xs text-white/80">
+                    {s.nome}
+                  </button>
+                ))}
+            </div>
+          )}
+          <Rotulo>Valor da diária (opcional)</Rotulo>
+          <input
+            value={valorFree}
+            onChange={(e) => setValorFree(e.target.value.replace(/[^\d,.]/g, ""))}
+            placeholder="Ex.: 150,00"
+            inputMode="decimal"
+            className={estiloCampo}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function lerValor(texto: string): number | undefined | null {
+  const t = texto.trim();
+  if (!t) return undefined;
+  const n = Number(t.replace(/\./g, "").replace(",", "."));
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+function JanelaCobertura({
+  linha,
+  data,
+  status,
+  onFechar,
+  onSalvo,
+}: {
+  linha: LinhaColaborador;
+  data: string;
+  status: "FALTA" | "VAGO";
+  onFechar: () => void;
+  onSalvo: () => void;
+}) {
+  const r = linha.registro && linha.registro.status === status ? linha.registro : null;
+  const [tipo, setTipo] = useState<TipoCobertura | null>(r?.coberturaTipo ?? null);
+  const [reservaId, setReservaId] = useState<string | null>(r?.coberturaTipo === "RESERVA" ? r.coberturaColaboradorId : null);
+  const [nomeFree, setNomeFree] = useState(r?.coberturaTipo === "FREELANCER" ? r.coberturaNome ?? "" : "");
+  const [valorFree, setValorFree] = useState(r?.coberturaValor != null ? String(r.coberturaValor).replace(".", ",") : "");
+  const [obs, setObs] = useState(r?.observacao ?? "");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    setErro(null);
+    if (!tipo) return setErro("Escolha quem cobriu.");
+    if (tipo === "RESERVA" && !reservaId) return setErro("Escolha a pessoa da Reserva Técnica.");
+    if (tipo === "FREELANCER" && !nomeFree.trim()) return setErro("Informe o nome do free lancer.");
+    const valor = tipo === "FREELANCER" ? lerValor(valorFree) : undefined;
+    if (valor === null) return setErro("Valor da diária inválido.");
+    setSalvando(true);
+    try {
+      await apiPostos("/registros", {
+        method: "POST",
+        body: JSON.stringify({
+          colaboradorId: linha.id,
+          data,
+          status,
+          coberturaTipo: tipo,
+          ...(tipo === "RESERVA" ? { coberturaColaboradorId: reservaId } : {}),
+          ...(tipo === "FREELANCER" ? { coberturaNome: nomeFree.trim(), ...(valor !== undefined ? { coberturaValor: valor } : {}) } : {}),
+          ...(obs.trim() ? { observacao: obs.trim() } : {}),
+        }),
+      });
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Janela titulo={status === "FALTA" ? `Falta — ${linha.nome}` : `Posto vago — ${dataBr(data)}`} onFechar={onFechar}>
+      <p className="text-xs text-white/60 m-0">
+        {status === "FALTA"
+          ? `${dataBr(data)} · ${ROTULO_AREA[linha.area] ?? linha.area}${linha.horario ? ` · ${linha.horario}` : ""}`
+          : linha.substituiNome
+            ? `No lugar de ${linha.substituiNome}.`
+            : "Registre quem cobriu o posto neste dia."}
+      </p>
+      <EscolhaCobertura
+        data={data}
+        tipo={tipo}
+        setTipo={setTipo}
+        reservaId={reservaId}
+        setReservaId={setReservaId}
+        nomeFree={nomeFree}
+        setNomeFree={setNomeFree}
+        valorFree={valorFree}
+        setValorFree={setValorFree}
+      />
+      <Rotulo>Observação (opcional)</Rotulo>
+      <textarea value={obs} onChange={(e) => setObs(e.target.value)} maxLength={500} rows={2} className={`${estiloCampo} h-auto py-2`} />
+      {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
+      <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
+        {salvando ? "Salvando..." : status === "FALTA" ? "Registrar falta" : "Registrar cobertura"}
+      </button>
+    </Janela>
+  );
+}
+
+// ---------------- recolhimento ----------------
+
+function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaColaborador; data: string; onFechar: () => void; onSalvo: () => void }) {
+  const [nome, setNome] = useState("");
+  const [matricula, setMatricula] = useState("");
+  const [inicio, setInicio] = useState(somarDias(data, 1));
+  const [motivo, setMotivo] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    setErro(null);
+    if (!inicio || inicio <= data) return setErro("A nova pessoa começa depois do dia do recolhimento.");
+    setSalvando(true);
+    try {
+      await apiPostos("/registros", {
+        method: "POST",
+        body: JSON.stringify({
+          colaboradorId: linha.id,
+          data,
+          status: "RECOLHIMENTO",
+          novoInicio: inicio,
+          ...(nome.trim() ? { novoNome: nome.trim() } : {}),
+          ...(nome.trim() && matricula.trim() ? { novoMatricula: matricula.trim() } : {}),
+          ...(motivo.trim() ? { observacao: motivo.trim() } : {}),
+        }),
+      });
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Janela titulo={`Recolhimento — ${linha.nome}`} onFechar={onFechar}>
+      <p className="text-xs text-white/60 m-0">
+        {linha.nome} sai do posto. O último dia dele(a) é {dataBr(data)}. A nova pessoa assume com a mesma escala e o mesmo horário.
+      </p>
+      <Rotulo>Nova pessoa no posto</Rotulo>
+      <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome (deixe vazio se ainda não souber)" className={estiloCampo} maxLength={120} />
+      {nome.trim() && (
+        <>
+          <Rotulo>Matrícula (opcional)</Rotulo>
+          <input value={matricula} onChange={(e) => setMatricula(e.target.value)} className={estiloCampo} maxLength={30} />
+        </>
+      )}
+      <Rotulo>Começa em</Rotulo>
+      <input type="date" value={inicio} min={somarDias(data, 1)} onChange={(e) => setInicio(e.target.value)} className={estiloCampo} style={{ colorScheme: "dark" }} />
+      {!nome.trim() && <p className="text-[11px] text-amber-300/80 mt-2 mb-0">Sem nome, o posto fica como "Vaga em aberto" até alguém informar o iniciante.</p>}
+      <Rotulo>Motivo (opcional)</Rotulo>
+      <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} rows={2} className={`${estiloCampo} h-auto py-2`} />
+      {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
+      <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
+        {salvando ? "Salvando..." : "Confirmar recolhimento"}
+      </button>
+    </Janela>
+  );
+}
+
+// ---------------- iniciante da vaga ----------------
+
+function JanelaIniciante({ linha, data, onFechar, onSalvo }: { linha: LinhaColaborador; data: string; onFechar: () => void; onSalvo: () => void }) {
+  const [nome, setNome] = useState(linha.vaga && linha.nome !== "Vaga em aberto" ? linha.nome : "");
+  const [matricula, setMatricula] = useState(linha.matricula ?? "");
+  const [inicio, setInicio] = useState(linha.aguardandoInicio ?? (data > linha.inicioEm ? data : linha.inicioEm));
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    setErro(null);
+    if (!nome.trim()) return setErro("Informe o nome.");
+    setSalvando(true);
+    try {
+      await apiPostos(`/colaboradores/${linha.id}/iniciante`, {
+        method: "POST",
+        body: JSON.stringify({ nome: nome.trim(), inicio, ...(matricula.trim() ? { matricula: matricula.trim() } : {}) }),
+      });
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Janela titulo="Informar iniciante" onFechar={onFechar}>
+      {linha.substituiNome && <p className="text-xs text-white/60 m-0">No lugar de {linha.substituiNome}.</p>}
+      <Rotulo>Nome</Rotulo>
+      <input value={nome} onChange={(e) => setNome(e.target.value)} className={estiloCampo} maxLength={120} />
+      <Rotulo>Matrícula (opcional)</Rotulo>
+      <input value={matricula} onChange={(e) => setMatricula(e.target.value)} className={estiloCampo} maxLength={30} />
+      <Rotulo>Começa em</Rotulo>
+      <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={estiloCampo} style={{ colorScheme: "dark" }} />
+      {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
+      <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
+        {salvando ? "Salvando..." : "Salvar"}
+      </button>
+    </Janela>
+  );
+}
+
+// ---------------- cadastro do colaborador ----------------
+
+function JanelaCadastro({
+  linha,
+  postoId,
+  aba,
+  data,
+  onFechar,
+  onSalvo,
+}: {
+  linha: LinhaColaborador | null; // null = novo
+  postoId: string;
+  aba: Aba;
+  data: string;
+  onFechar: () => void;
+  onSalvo: () => void;
+}) {
+  const [nome, setNome] = useState(linha?.nome ?? "");
+  const [matricula, setMatricula] = useState(linha?.matricula ?? "");
+  const [area, setArea] = useState(linha?.area ?? (aba === "LIMPEZA" ? "LIMPEZA" : "PORTARIA"));
+  const [turno, setTurno] = useState(linha?.turno ?? (aba === "NOTURNO" ? "NOTURNO" : "DIURNO"));
+  const [regra, setRegra] = useState(linha?.regraDias ?? "IMPAR");
+  const [referencia, setReferencia] = useState(linha?.dataReferencia ?? "");
+  const [horario, setHorario] = useState(linha?.horario ?? "");
+  const [inicio, setInicio] = useState(data);
+  const [retirar, setRetirar] = useState(false);
+  const [ultimoDia, setUltimoDia] = useState(data);
+  const [motivo, setMotivo] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const pedeReferencia = REGRAS.find((r) => r.valor === regra)?.referencia;
+
+  const enviar = async (caminho: string, metodo: string, corpo: object) => {
+    setErro(null);
+    setSalvando(true);
+    try {
+      await apiPostos(caminho, { method: metodo, body: JSON.stringify(corpo) });
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+      setSalvando(false);
+    }
+  };
+
+  const salvar = () => {
+    if (!nome.trim()) return setErro("Informe o nome.");
+    const comum = {
+      nome: nome.trim(),
+      area,
+      turno,
+      regraDias: regra,
+      horario: horario.trim(),
+      matricula: matricula.trim(),
+    };
+    if (linha) {
+      return enviar(`/colaboradores/${linha.id}`, "PATCH", { ...comum, dataReferencia: pedeReferencia ? referencia : "" });
+    }
+    return enviar("/colaboradores", "POST", {
+      ...comum,
+      postoId,
+      inicioEm: inicio,
+      ...(pedeReferencia && referencia ? { dataReferencia: referencia } : {}),
+    });
+  };
+
+  const retirarDoPosto = () => {
+    if (!linha) return;
+    enviar(`/colaboradores/${linha.id}/remover`, "POST", { ultimoDia, ...(motivo.trim() ? { motivo: motivo.trim() } : {}) });
+  };
+
+  return (
+    <Janela titulo={linha ? `Editar — ${linha.nome}` : "Incluir colaborador"} onFechar={onFechar}>
+      {!retirar && (
+        <>
+          <Rotulo>Nome</Rotulo>
+          <input value={nome} onChange={(e) => setNome(e.target.value)} className={estiloCampo} maxLength={120} />
+          <Rotulo>Matrícula (opcional)</Rotulo>
+          <input value={matricula} onChange={(e) => setMatricula(e.target.value)} className={estiloCampo} maxLength={30} />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Rotulo>Área</Rotulo>
+              <select value={area} onChange={(e) => setArea(e.target.value)} className={estiloCampo}>
+                <option value="PORTARIA">Portaria</option>
+                <option value="ZELADORIA">Zeladoria e Manutenção</option>
+                <option value="LIMPEZA">Limpeza</option>
+              </select>
+            </div>
+            <div>
+              <Rotulo>Turno</Rotulo>
+              <select value={turno} onChange={(e) => setTurno(e.target.value)} className={estiloCampo}>
+                <option value="DIURNO">Diurno</option>
+                <option value="NOTURNO">Noturno</option>
+              </select>
+            </div>
+          </div>
+          <Rotulo>Escala</Rotulo>
+          <select value={regra} onChange={(e) => setRegra(e.target.value)} className={estiloCampo}>
+            {REGRAS.map((r) => (
+              <option key={r.valor} value={r.valor}>
+                {r.rotulo}
+              </option>
+            ))}
+          </select>
+          {pedeReferencia && (
+            <>
+              <Rotulo>{pedeReferencia}</Rotulo>
+              <input type="date" value={referencia} onChange={(e) => setReferencia(e.target.value)} className={estiloCampo} style={{ colorScheme: "dark" }} />
+            </>
+          )}
+          <Rotulo>Horário (opcional)</Rotulo>
+          <input value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex.: 06:00-18:00" className={estiloCampo} maxLength={60} />
+          {!linha && (
+            <>
+              <Rotulo>Começa no posto em</Rotulo>
+              <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={estiloCampo} style={{ colorScheme: "dark" }} />
+            </>
+          )}
+          {linha?.escalaTexto && <p className="text-[11px] text-white/40 mt-3 mb-0">Escala no RH: {linha.escalaTexto}</p>}
+          {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
+          <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
+            {salvando ? "Salvando..." : linha ? "Salvar alterações" : "Incluir no posto"}
+          </button>
+          {linha && (
+            <button type="button" onClick={() => setRetirar(true)} className="w-full h-10 mt-2 text-xs text-white/50 underline">
+              Retirar do posto sem substituto
+            </button>
+          )}
+        </>
+      )}
+      {retirar && linha && (
+        <>
+          <p className="text-xs text-white/60 m-0">
+            Use só quando o posto for reduzido. Para trocar a pessoa, use o botão <b>Recolhimento</b>.
+          </p>
+          <Rotulo>Último dia no posto</Rotulo>
+          <input type="date" value={ultimoDia} onChange={(e) => setUltimoDia(e.target.value)} className={estiloCampo} style={{ colorScheme: "dark" }} />
+          <Rotulo>Motivo (opcional)</Rotulo>
+          <input value={motivo} onChange={(e) => setMotivo(e.target.value)} className={estiloCampo} maxLength={300} />
+          {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
+          <button type="button" disabled={salvando} onClick={retirarDoPosto} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
+            {salvando ? "Salvando..." : "Retirar do posto"}
+          </button>
+          <button type="button" onClick={() => setRetirar(false)} className="w-full h-10 mt-2 text-xs text-white/50 underline">
+            Voltar
+          </button>
+        </>
+      )}
+    </Janela>
+  );
+}
+
+// ---------------- cartão do colaborador ----------------
+
+type Acao =
+  | { tipo: "cobertura"; linha: LinhaColaborador; status: "FALTA" | "VAGO" }
+  | { tipo: "recolhimento"; linha: LinhaColaborador }
+  | { tipo: "iniciante"; linha: LinhaColaborador }
+  | { tipo: "cadastro"; linha: LinhaColaborador | null };
+
+function CartaoColaborador({
+  linha,
+  podeMarcar,
+  ocupado,
+  onMarcar,
+  onAcao,
+  onDesmarcar,
+}: {
+  linha: LinhaColaborador;
+  podeMarcar: boolean;
+  ocupado: boolean;
+  onMarcar: (l: LinhaColaborador, s: Status) => void;
+  onAcao: (a: Acao) => void;
+  onDesmarcar: (l: LinhaColaborador) => void;
+}) {
+  const [mostrarMesmoAssim, setMostrarMesmoAssim] = useState(false);
+  const reg = linha.registro;
+  const cor = corDoStatus(reg?.status);
+  const folga = linha.plantao === false && !reg;
+  const botoesVisiveis = podeMarcar && !linha.vaga && (!folga || mostrarMesmoAssim);
+
+  const botao = (s: Status, rotulo: string, verde: boolean) => {
+    const ativo = reg?.status === s;
+    const c = ativo ? (verde ? CORES_STATUS.verde : s === "FOLGA" ? CORES_STATUS.cinza : CORES_STATUS.vermelho) : null;
+    return (
+      <button
+        key={s}
+        type="button"
+        disabled={ocupado}
+        onClick={() => {
+          if (s === "FALTA") return onAcao({ tipo: "cobertura", linha, status: "FALTA" });
+          if (s === "RECOLHIMENTO") return onAcao({ tipo: "recolhimento", linha });
+          if (!ativo) onMarcar(linha, s);
+        }}
+        className="h-11 rounded-lg text-xs font-bold"
+        style={{
+          background: c ? c.fundo : "rgba(255,255,255,0.04)",
+          border: `1px solid ${c ? c.borda : "rgba(255,255,255,0.14)"}`,
+          color: c ? c.texto : "rgba(255,255,255,0.75)",
+          opacity: ocupado ? 0.5 : 1,
+        }}
+      >
+        {rotulo}
+      </button>
+    );
+  };
+
+  return (
+    <div
+      className="rounded-xl p-3 mb-2"
+      style={{
+        background: cor ? cor.fundo : "rgba(255,255,255,0.03)",
+        border: `1px solid ${cor ? cor.borda : folga ? "rgba(255,255,255,0.06)" : CORES.borda}`,
+        opacity: folga && !mostrarMesmoAssim ? 0.6 : 1,
+      }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div style={{ minWidth: 0 }}>
+          <p className="m-0 text-white font-semibold text-sm break-words">
+            {linha.vaga ? (linha.aguardandoInicio ? "Posto vago" : "Vaga em aberto") : linha.nome}
+          </p>
+          <p className="m-0 text-[11px] text-white/50 mt-0.5">
+            {[linha.horario, rotuloRegra(linha.regraDias), linha.matricula ? `Mat. ${linha.matricula}` : null].filter(Boolean).join(" · ")}
+          </p>
+          {linha.vaga && (
+            <p className="m-0 text-[11px] text-amber-300/90 mt-1">
+              {linha.aguardandoInicio ? `${linha.nome} começa em ${dataBr(linha.aguardandoInicio)}` : "Iniciante a definir"}
+              {linha.substituiNome ? ` · no lugar de ${linha.substituiNome}` : ""}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {reg && (
+            <span className="text-[11px] font-bold rounded-full px-2 py-0.5" style={{ color: cor?.texto, border: `1px solid ${cor?.borda}` }}>
+              {ROTULO_STATUS[reg.status] ?? reg.status}
+            </span>
+          )}
+          {!reg && folga && <span className="text-[11px] text-white/50">Folga pela escala</span>}
+          {!reg && linha.plantao === null && !linha.vaga && <span className="text-[11px] text-amber-300">Escala a definir</span>}
+          {!linha.vaga && (
+            <button type="button" onClick={() => onAcao({ tipo: "cadastro", linha })} className="text-[11px] text-white/40 underline">
+              Editar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {reg && (reg.coberturaTipo || reg.observacao) && (
+        <p className="m-0 mt-2 text-xs text-white/75">
+          {reg.coberturaTipo && (
+            <>
+              Cobertura: <b>{ROTULO_COBERTURA[reg.coberturaTipo]}</b>
+              {reg.coberturaNome ? ` — ${reg.coberturaNome}` : ""}
+              {reg.coberturaValor != null ? ` (${moeda(reg.coberturaValor)})` : ""}
+            </>
+          )}
+          {reg.observacao && <span className="block text-white/55">Obs.: {reg.observacao}</span>}
+        </p>
+      )}
+
+      {botoesVisiveis && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+          {botao("CONFIRMADO", "✅ Confirmado", true)}
+          {botao("FALTA", "❌ Falta", false)}
+          {botao("RECOLHIMENTO", "⛔ Recolhimento", false)}
+          {botao("FOLGA", "💤 Folga", false)}
+        </div>
+      )}
+
+      {podeMarcar && linha.vaga && (
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={() => onAcao({ tipo: "cobertura", linha, status: "VAGO" })}
+            className="h-11 rounded-lg text-xs font-bold"
+            style={{ background: CORES_STATUS.vermelho.fundo, border: `1px solid ${CORES_STATUS.vermelho.borda}`, color: CORES_STATUS.vermelho.texto }}
+          >
+            {reg ? "Alterar cobertura" : "Registrar cobertura"}
+          </button>
+          <button type="button" onClick={() => onAcao({ tipo: "iniciante", linha })} className="h-11 rounded-lg text-xs font-bold border border-white/15 text-white/80">
+            Informar iniciante
+          </button>
+        </div>
+      )}
+
+      {podeMarcar && folga && !mostrarMesmoAssim && !linha.vaga && (
+        <button type="button" onClick={() => setMostrarMesmoAssim(true)} className="mt-2 text-[11px] text-white/50 underline">
+          Trabalhou mesmo assim? Marcar
+        </button>
+      )}
+
+      {reg && podeMarcar && (
+        <div className="flex items-center justify-between gap-2 mt-2">
+          <span className="text-[10px] text-white/35">
+            por {reg.registradoPorNome} · {new Date(reg.atualizadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}
+          </span>
+          <button type="button" disabled={ocupado} onClick={() => onDesmarcar(linha)} className="text-[11px] text-white/50 underline">
+            {reg.status === "RECOLHIMENTO" ? "Desfazer recolhimento" : "Desmarcar"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------- página ----------------
+
+interface DiaResposta {
+  posto: { id: string; nome: string; tipo: string };
+  data: string;
+  podeMarcar: boolean;
+  colaboradores: LinhaColaborador[];
+}
+
+export default function ConfirmacaoPosto() {
+  const [aba, setAbaEstado] = useState<Aba>(lerAba);
+  const [data, setData] = useState(hojeBrasilia());
+  const [postos, setPostos] = useState<PostoResumo[] | null>(null);
+  const [postoId, setPostoId] = useState<string | null>(null);
+  const [dia, setDia] = useState<DiaResposta | null>(null);
+  const [busca, setBusca] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [acao, setAcao] = useState<Acao | null>(null);
+  const hoje = hojeBrasilia();
+
+  const setAba = (a: Aba) => {
+    setAbaEstado(a);
+    try {
+      localStorage.setItem(CHAVE_ABA, a);
+    } catch {
+      // sem armazenamento
+    }
+  };
+
+  const carregarPostos = useCallback(async () => {
+    try {
+      const r = await apiPostos<{ postos: PostoResumo[] }>(`/lista?data=${data}&aba=${aba}`, {}, "Não foi possível carregar os postos.");
+      setPostos(r.postos);
+      setErro(null);
+    } catch (e) {
+      setErro((e as Error).message);
+      setPostos([]);
+    }
+  }, [data, aba]);
+
+  const carregarDia = useCallback(async () => {
+    if (!postoId) return setDia(null);
+    try {
+      const r = await apiPostos<DiaResposta>(`/dia?postoId=${postoId}&data=${data}&aba=${aba}`, {}, "Não foi possível carregar o posto.");
+      setDia(r);
+      setErro(null);
+    } catch (e) {
+      setErro((e as Error).message);
+      setDia(null);
+    }
+  }, [postoId, data, aba]);
+
+  useEffect(() => {
+    setPostos(null);
+    carregarPostos();
+  }, [carregarPostos]);
+
+  useEffect(() => {
+    carregarDia();
+  }, [carregarDia]);
+
+  // Posto que não aparece na aba escolhida: volta para a lista.
+  useEffect(() => {
+    if (postoId && postos && !postos.some((p) => p.id === postoId)) setPostoId(null);
+  }, [postos, postoId]);
+
+  const recarregar = async () => {
+    await Promise.all([carregarDia(), carregarPostos()]);
+  };
+
+  const marcar = async (linha: LinhaColaborador, status: Status) => {
+    setOcupado(true);
+    try {
+      await apiPostos("/registros", { method: "POST", body: JSON.stringify({ colaboradorId: linha.id, data, status }) });
+      await recarregar();
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  const desmarcar = async (linha: LinhaColaborador) => {
+    if (!linha.registro) return;
+    const recolhimento = linha.registro.status === "RECOLHIMENTO";
+    if (recolhimento && !confirm(`Desfazer o recolhimento de ${linha.nome}? A pessoa volta para o posto e o substituto sai.`)) return;
+    setOcupado(true);
+    try {
+      await apiPostos(`/registros/${linha.registro.id}`, { method: "DELETE" });
+      await recarregar();
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  const fecharAcao = useCallback(() => setAcao(null), []);
+  const salvoAcao = async () => {
+    setAcao(null);
+    await recarregar();
+  };
+
+  const postosFiltrados = useMemo(() => {
+    const termo = normalizarBusca(busca);
+    return (postos ?? []).filter((p) => !termo || normalizarBusca(p.nome).includes(termo));
+  }, [postos, busca]);
+
+  const totais = useMemo(() => {
+    const lista = postos ?? [];
+    return {
+      pendentes: lista.reduce((s, p) => s + p.pendentes, 0),
+      vermelhos: lista.reduce((s, p) => s + p.vermelhos, 0),
+      completos: lista.filter((p) => p.pendentes === 0).length,
+    };
+  }, [postos]);
+
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, LinhaColaborador[]>();
+    for (const l of dia?.colaboradores ?? []) {
+      const chave = ROTULO_AREA[l.area] ?? l.area;
+      mapa.set(chave, [...(mapa.get(chave) ?? []), l]);
+    }
+    return [...mapa.entries()];
+  }, [dia]);
+
+  return (
+    <div style={{ background: CORES.fundo, minHeight: "100vh", display: "flex" }}>
+      <NavAdmin />
+      <div style={{ flex: 1, padding: "1.5rem 1rem 4rem", minWidth: 0 }}>
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p style={{ fontSize: 22, fontWeight: 900, color: CORES.texto, margin: 0, fontFamily: FONTES.titulo, letterSpacing: "-0.02em" }}>
+              Confirmação de posto
+            </p>
+            <Link to="/confirmacao-posto/historico" className="h-9 px-4 rounded-full border border-white/15 text-white/80 text-xs inline-flex items-center">
+              📋 Histórico
+            </Link>
+          </div>
+          <p style={{ fontSize: 12, color: "#8a8a8a", margin: "4px 0 16px" }}>Confirme diariamente quem está no posto.</p>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            {ABAS.map((a) => {
+              const ativa = a.aba === aba;
+              return (
+                <button
+                  key={a.aba}
+                  type="button"
+                  onClick={() => setAba(a.aba)}
+                  style={{
+                    flex: "1 1 100px",
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    background: ativa ? "rgba(96,165,250,0.14)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${ativa ? "rgba(96,165,250,0.5)" : CORES.borda}`,
+                    color: ativa ? CORES.texto : CORES.textoSecundario,
+                    fontFamily: FONTES.corpo,
+                  }}
+                >
+                  <span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{a.titulo}</span>
+                  <span style={{ display: "block", fontSize: 11, color: CORES.textoMuted, marginTop: 2 }}>{a.subtitulo}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 mb-4">
+            <button type="button" onClick={() => setData(somarDias(data, -1))} aria-label="Dia anterior" className="h-11 w-11 rounded-lg border border-white/15 text-white text-lg">
+              ‹
+            </button>
+            <label className="flex-1 h-11 rounded-lg border border-white/15 bg-white/5 flex items-center justify-center gap-2 text-sm text-white relative">
+              <span>
+                {data === hoje ? "Hoje, " : ""}
+                {diaDaSemana(data)} {dataBr(data)}
+              </span>
+              <input
+                type="date"
+                value={data}
+                max={hoje}
+                onChange={(e) => e.target.value && setData(e.target.value)}
+                style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", colorScheme: "dark" }}
+                aria-label="Escolher data"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={data >= hoje}
+              onClick={() => setData(somarDias(data, 1))}
+              aria-label="Dia seguinte"
+              className="h-11 w-11 rounded-lg border border-white/15 text-white text-lg disabled:opacity-30"
+            >
+              ›
+            </button>
+            {data !== hoje && (
+              <button type="button" onClick={() => setData(hoje)} className="h-11 px-3 rounded-lg border border-white/15 text-white/80 text-xs">
+                Hoje
+              </button>
+            )}
+          </div>
+
+          {erro && <p className="text-sm text-red-400">{erro}</p>}
+
+          {!postoId && (
+            <>
+              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔎 Pesquisar condomínio / posto" className={`${estiloCampo} mb-3`} />
+              {postos && postos.length > 0 && (
+                <p className="text-xs text-white/50 mt-0 mb-3">
+                  {postos.length} postos · {totais.completos} completos · {totais.pendentes} a confirmar
+                  {totais.vermelhos ? ` · ${totais.vermelhos} em vermelho` : ""}
+                </p>
+              )}
+              {postos === null && <p className="text-sm text-white/50">Carregando...</p>}
+              {postos?.length === 0 && !erro && (
+                <p className="text-sm text-white/50">Nenhum posto com colaboradores nesta aba{busca ? "" : " para você"}.</p>
+              )}
+              <div className="flex flex-col gap-2">
+                {postosFiltrados.map((p) => {
+                  const completo = p.pendentes === 0;
+                  const c = p.vermelhos ? CORES_STATUS.vermelho : completo ? CORES_STATUS.verde : CORES_STATUS.amarelo;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setPostoId(p.id)}
+                      className="w-full text-left rounded-xl px-4 py-3 flex items-center justify-between gap-3"
+                      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${CORES.borda}` }}
+                    >
+                      <span style={{ minWidth: 0 }}>
+                        <span className="block text-sm text-white font-semibold break-words">{p.nome}</span>
+                        <span className="block text-[11px] text-white/45 mt-0.5">
+                          {p.total} {p.total === 1 ? "pessoa" : "pessoas"} · {p.dePlantao} no plantão
+                          {p.tipo === "RESERVA" ? " · Reserva Técnica" : ""}
+                        </span>
+                      </span>
+                      <span className="text-[11px] font-bold rounded-full px-2 py-1 shrink-0" style={{ color: c.texto, border: `1px solid ${c.borda}`, background: c.fundo }}>
+                        {completo ? (p.vermelhos ? `✓ ${p.vermelhos} vermelho${p.vermelhos > 1 ? "s" : ""}` : "✓ Completo") : `${p.pendentes} a confirmar`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {postoId && (
+            <>
+              <button type="button" onClick={() => setPostoId(null)} className="text-xs text-white/60 mb-2">
+                ← Todos os postos
+              </button>
+              {!dia && !erro && <p className="text-sm text-white/50">Carregando...</p>}
+              {dia && (
+                <>
+                  <p className="text-white font-bold m-0 mb-1" style={{ fontSize: 17, fontFamily: FONTES.titulo }}>
+                    {dia.posto.nome}
+                  </p>
+                  {!dia.podeMarcar && (
+                    <p className="text-xs text-amber-300 mt-1">
+                      {data > hoje ? "Dia futuro: só consulta." : "Só consulta: o supervisor marca até 7 dias para trás."}
+                    </p>
+                  )}
+                  {dia.colaboradores.length === 0 && <p className="text-sm text-white/50">Ninguém nesta aba neste dia.</p>}
+                  {grupos.map(([area, linhas]) => (
+                    <div key={area} className="mt-3">
+                      <p className="text-[11px] uppercase tracking-wider text-white/45 mb-2" style={{ fontFamily: FONTES.mono }}>
+                        {area}
+                      </p>
+                      {linhas.map((l) => (
+                        <CartaoColaborador
+                          key={l.id}
+                          linha={l}
+                          podeMarcar={dia.podeMarcar}
+                          ocupado={ocupado}
+                          onMarcar={marcar}
+                          onAcao={setAcao}
+                          onDesmarcar={desmarcar}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setAcao({ tipo: "cadastro", linha: null })}
+                    className="w-full h-11 rounded-xl border border-dashed border-white/20 text-white/70 text-sm mt-3"
+                  >
+                    + Incluir colaborador neste posto
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {acao?.tipo === "cobertura" && <JanelaCobertura linha={acao.linha} data={data} status={acao.status} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "recolhimento" && <JanelaRecolhimento linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "iniciante" && <JanelaIniciante linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "cadastro" && postoId && (
+        <JanelaCadastro linha={acao.linha} postoId={postoId} aba={aba} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />
+      )}
+    </div>
+  );
+}
