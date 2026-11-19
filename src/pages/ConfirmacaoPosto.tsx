@@ -308,10 +308,109 @@ function JanelaCobertura({
   );
 }
 
+// ---------------- nova pessoa (com sugestão da Reserva Técnica) ----------------
+
+interface PessoaReserva {
+  id: string;
+  nome: string;
+  matricula: string | null;
+}
+
+function CampoNovaPessoa({
+  data,
+  inicio,
+  nome,
+  setNome,
+  reserva,
+  setReserva,
+  placeholder,
+}: {
+  data: string;
+  inicio: string;
+  nome: string;
+  setNome: (v: string) => void;
+  reserva: PessoaReserva | null;
+  setReserva: (r: PessoaReserva | null) => void;
+  placeholder: string;
+}) {
+  const [lista, setLista] = useState<ReservaOpcao[] | null>(null);
+  useEffect(() => {
+    apiPostos<ReservaOpcao[]>(`/reserva?data=${data}`)
+      .then(setLista)
+      .catch(() => setLista([]));
+  }, [data]);
+
+  const sugestoes = useMemo(() => {
+    const termo = normalizarBusca(nome);
+    if (reserva || termo.length < 2) return [];
+    return (lista ?? []).filter((r) => normalizarBusca(r.nome).includes(termo)).slice(0, 6);
+  }, [lista, nome, reserva]);
+
+  if (reserva) {
+    return (
+      <div className="rounded-lg border px-3 py-2" style={{ borderColor: "rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.10)" }}>
+        <div className="flex items-start justify-between gap-2">
+          <span>
+            <span className="block text-sm text-white font-semibold">{reserva.nome}</span>
+            <span className="block text-[11px] text-white/60">
+              Da Reserva Técnica{reserva.matricula ? ` · Mat. ${reserva.matricula}` : ""} · sai da reserva em {dataBr(inicio)}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setReserva(null);
+              setNome("");
+            }}
+            className="text-[11px] text-white/60 underline shrink-0"
+          >
+            Trocar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder={placeholder} className={estiloCampo} maxLength={120} />
+      {sugestoes.length > 0 && (
+        <div className="mt-1 rounded-lg border border-white/10 overflow-hidden">
+          <p className="text-[10px] uppercase tracking-wider text-white/40 m-0 px-3 pt-2" style={{ fontFamily: FONTES.mono }}>
+            Reserva Técnica
+          </p>
+          {sugestoes.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => {
+                setReserva({ id: r.id, nome: r.nome, matricula: r.matricula ?? null });
+                setNome(r.nome);
+              }}
+              className="w-full text-left px-3 py-2 border-b border-white/5"
+            >
+              <span className="block text-sm text-white">{r.nome}</span>
+              <span className="block text-[11px] text-white/50">
+                {ROTULO_AREA[r.area] ?? r.area} · {r.turno === "NOTURNO" ? "Noturno" : "Diurno"}
+                {r.horario ? ` · ${r.horario}` : ""}
+                {r.cobrindo ? ` · cobrindo ${r.cobrindo}` : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {nome.trim().length >= 2 && lista !== null && sugestoes.length === 0 && (
+        <p className="text-[11px] text-white/40 mt-1 mb-0">Ninguém da Reserva Técnica com esse nome: será incluída uma pessoa nova.</p>
+      )}
+    </>
+  );
+}
+
 // ---------------- recolhimento ----------------
 
 function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaColaborador; data: string; onFechar: () => void; onSalvo: () => void }) {
   const [nome, setNome] = useState("");
+  const [reserva, setReserva] = useState<PessoaReserva | null>(null);
   const [matricula, setMatricula] = useState("");
   const [inicio, setInicio] = useState(somarDias(data, 1));
   const [motivo, setMotivo] = useState("");
@@ -330,8 +429,9 @@ function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaCo
           data,
           status: "RECOLHIMENTO",
           novoInicio: inicio,
-          ...(nome.trim() ? { novoNome: nome.trim() } : {}),
-          ...(nome.trim() && matricula.trim() ? { novoMatricula: matricula.trim() } : {}),
+          ...(reserva ? { novoReservaId: reserva.id } : {}),
+          ...(!reserva && nome.trim() ? { novoNome: nome.trim() } : {}),
+          ...(!reserva && nome.trim() && matricula.trim() ? { novoMatricula: matricula.trim() } : {}),
           ...(motivo.trim() ? { observacao: motivo.trim() } : {}),
         }),
       });
@@ -348,8 +448,16 @@ function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaCo
         {linha.nome} sai do posto. O último dia dele(a) é {dataBr(data)}. A nova pessoa assume com a mesma escala e o mesmo horário.
       </p>
       <Rotulo>Nova pessoa no posto</Rotulo>
-      <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome (deixe vazio se ainda não souber)" className={estiloCampo} maxLength={120} />
-      {nome.trim() && (
+      <CampoNovaPessoa
+        data={data}
+        inicio={inicio}
+        nome={nome}
+        setNome={setNome}
+        reserva={reserva}
+        setReserva={setReserva}
+        placeholder="Digite o nome (deixe vazio se ainda não souber)"
+      />
+      {nome.trim() && !reserva && (
         <>
           <Rotulo>Matrícula (opcional)</Rotulo>
           <input value={matricula} onChange={(e) => setMatricula(e.target.value)} className={estiloCampo} maxLength={30} />
@@ -372,6 +480,7 @@ function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaCo
 
 function JanelaIniciante({ linha, data, onFechar, onSalvo }: { linha: LinhaColaborador; data: string; onFechar: () => void; onSalvo: () => void }) {
   const [nome, setNome] = useState(linha.vaga && linha.nome !== "Vaga em aberto" ? linha.nome : "");
+  const [reserva, setReserva] = useState<PessoaReserva | null>(null);
   const [matricula, setMatricula] = useState(linha.matricula ?? "");
   const [inicio, setInicio] = useState(linha.aguardandoInicio ?? (data > linha.inicioEm ? data : linha.inicioEm));
   const [erro, setErro] = useState<string | null>(null);
@@ -384,7 +493,12 @@ function JanelaIniciante({ linha, data, onFechar, onSalvo }: { linha: LinhaColab
     try {
       await apiPostos(`/colaboradores/${linha.id}/iniciante`, {
         method: "POST",
-        body: JSON.stringify({ nome: nome.trim(), inicio, ...(matricula.trim() ? { matricula: matricula.trim() } : {}) }),
+        body: JSON.stringify({
+          nome: nome.trim(),
+          inicio,
+          ...(reserva ? { reservaId: reserva.id } : {}),
+          ...(!reserva && matricula.trim() ? { matricula: matricula.trim() } : {}),
+        }),
       });
       onSalvo();
     } catch (e) {
@@ -397,9 +511,21 @@ function JanelaIniciante({ linha, data, onFechar, onSalvo }: { linha: LinhaColab
     <Janela titulo="Informar iniciante" onFechar={onFechar}>
       {linha.substituiNome && <p className="text-xs text-white/60 m-0">No lugar de {linha.substituiNome}.</p>}
       <Rotulo>Nome</Rotulo>
-      <input value={nome} onChange={(e) => setNome(e.target.value)} className={estiloCampo} maxLength={120} />
-      <Rotulo>Matrícula (opcional)</Rotulo>
-      <input value={matricula} onChange={(e) => setMatricula(e.target.value)} className={estiloCampo} maxLength={30} />
+      <CampoNovaPessoa
+        data={data}
+        inicio={inicio}
+        nome={nome}
+        setNome={setNome}
+        reserva={reserva}
+        setReserva={setReserva}
+        placeholder="Digite o nome"
+      />
+      {!reserva && (
+        <>
+          <Rotulo>Matrícula (opcional)</Rotulo>
+          <input value={matricula} onChange={(e) => setMatricula(e.target.value)} className={estiloCampo} maxLength={30} />
+        </>
+      )}
       <Rotulo>Começa em</Rotulo>
       <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={estiloCampo} style={{ colorScheme: "dark" }} />
       {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}

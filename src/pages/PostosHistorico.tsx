@@ -50,6 +50,7 @@ const ROTULO_EVENTO: Record<string, string> = {
   INICIANTE: "Iniciante",
   EDICAO: "Cadastro alterado",
   DESFEITO: "Recolhimento desfeito",
+  TRANSFERENCIA: "Saída da Reserva Técnica",
 };
 
 const campo = "h-10 rounded-lg bg-white/5 border border-white/15 px-3 text-sm text-white";
