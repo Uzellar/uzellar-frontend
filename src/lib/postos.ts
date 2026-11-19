@@ -89,6 +89,7 @@ export interface LinhaColaborador {
   vaga: boolean;
   aguardandoInicio: string | null;
   substituiNome: string | null;
+  iniciante?: boolean;
   plantao: boolean | null;
   registro: RegistroDia | null;
 }
