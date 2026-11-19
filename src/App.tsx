@@ -29,6 +29,8 @@ import Sugestoes from "./pages/Sugestoes";
 import MapasRondaAdmin from "./pages/MapasRondaAdmin";
 import Veiculos from "./pages/Veiculos";
 import LocalizacaoEquipe from "./pages/LocalizacaoEquipe";
+import ConfirmacaoPosto from "./pages/ConfirmacaoPosto";
+import PostosHistorico from "./pages/PostosHistorico";
 import RastreioLocalizacao from "./components/RastreioLocalizacao";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
@@ -113,6 +115,24 @@ export default function App() {
           element={
             <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
               <LerQrVisita />
+            </RotaComPerfil>
+          }
+        />
+
+        {/* Confirmação de posto (11/2026) — Master e Supervisor */}
+        <Route
+          path="/confirmacao-posto"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <ConfirmacaoPosto />
+            </RotaComPerfil>
+          }
+        />
+        <Route
+          path="/confirmacao-posto/historico"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <PostosHistorico />
             </RotaComPerfil>
           }
         />
