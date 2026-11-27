@@ -32,6 +32,7 @@ import LocalizacaoEquipe from "./pages/LocalizacaoEquipe";
 import ConfirmacaoPosto from "./pages/ConfirmacaoPosto";
 import PostosHistorico from "./pages/PostosHistorico";
 import EquipamentosPosto from "./pages/EquipamentosPosto";
+import Anotacoes from "./pages/Anotacoes";
 import RastreioLocalizacao from "./components/RastreioLocalizacao";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
@@ -144,6 +145,16 @@ export default function App() {
           element={
             <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
               <EquipamentosPosto />
+            </RotaComPerfil>
+          }
+        />
+
+        {/* Anotações do condomínio (11/2026) — Master e Supervisor */}
+        <Route
+          path="/anotacoes"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <Anotacoes />
             </RotaComPerfil>
           }
         />
