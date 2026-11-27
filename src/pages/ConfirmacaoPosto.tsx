@@ -1520,6 +1520,49 @@ export default function ConfirmacaoPosto() {
     return [...mapa.entries()];
   }, [dia]);
 
+  // Efetivo do posto aberto: aparece logo abaixo da linha do posto (seta).
+  const detalhe = postoId ? (
+            <>
+              {(!dia || dia.posto.id !== postoId) && !erro && <p className="text-sm text-white/50 m-0">Carregando...</p>}
+              {dia && dia.posto.id === postoId && (
+                <>
+                  {!dia.podeMarcar && (
+                    <p className="text-xs text-amber-300 mt-1">
+                      {data > hoje ? "Dia futuro: só consulta." : "Só consulta: o supervisor marca até 7 dias para trás."}
+                    </p>
+                  )}
+                  {dia.colaboradores.length === 0 && <p className="text-sm text-white/50">Ninguém nesta aba neste dia.</p>}
+                  {grupos.map(([area, linhas]) => (
+                    <div key={area} className="mt-3">
+                      <p className="text-[11px] uppercase tracking-wider text-white/45 mb-2" style={{ fontFamily: FONTES.mono }}>
+                        {area}
+                      </p>
+                      {linhas.map((l) => (
+                        <CartaoColaborador
+                          key={l.id}
+                          linha={l}
+                          reserva={dia.posto.tipo === "RESERVA"}
+                          podeMarcar={dia.podeMarcar}
+                          ocupado={ocupado}
+                          onMarcar={marcar}
+                          onAcao={setAcao}
+                          onDesmarcar={desmarcar}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setAcao({ tipo: "novoIniciante", posto: { id: dia.posto.id, nome: dia.posto.nome } })}
+                    className="w-full h-11 rounded-xl border border-dashed border-white/20 text-white/70 text-sm mt-3"
+                  >
+                    ＋ Cadastrar iniciante neste posto
+                  </button>
+                </>
+              )}
+            </>
+  ) : null;
+
   return (
     <div style={{ background: CORES.fundo, minHeight: "100vh", display: "flex" }}>
       <NavAdmin />
@@ -1598,7 +1641,7 @@ export default function ConfirmacaoPosto() {
 
           {erro && <p className="text-sm text-red-400">{erro}</p>}
 
-          {!postoId && (
+          {(
             <>
               <button
                 type="button"
@@ -1623,14 +1666,23 @@ export default function ConfirmacaoPosto() {
                 {postosFiltrados.map((p) => {
                   const completo = p.pendentes === 0;
                   const c = p.vermelhos ? CORES_STATUS.vermelho : completo ? CORES_STATUS.verde : CORES_STATUS.amarelo;
+                  const aberto = p.id === postoId;
                   return (
-                    <button
+                    <div
                       key={p.id}
-                      type="button"
-                      onClick={() => setPostoId(p.id)}
-                      className="w-full text-left rounded-xl px-4 py-3 flex items-center justify-between gap-3"
-                      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${CORES.borda}` }}
+                      id={`posto-${p.id}`}
+                      className="rounded-xl"
+                      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${aberto ? "rgba(96,165,250,0.45)" : CORES.borda}`, scrollMarginTop: 72 }}
                     >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPostoId(aberto ? null : p.id);
+                          if (!aberto) setTimeout(() => document.getElementById(`posto-${p.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+                        }}
+                        aria-expanded={aberto}
+                        className="w-full text-left rounded-xl px-4 py-3 flex items-center justify-between gap-3"
+                      >
                       <span style={{ minWidth: 0 }}>
                         <span className="block text-sm text-white font-semibold break-words">{p.nome}</span>
                         <span className="block text-[11px] text-white/45 mt-0.5">
@@ -1641,60 +1693,22 @@ export default function ConfirmacaoPosto() {
                       <span className="text-[11px] font-bold rounded-full px-2 py-1 shrink-0" style={{ color: c.texto, border: `1px solid ${c.borda}`, background: c.fundo }}>
                         {completo ? (p.vermelhos ? `✓ ${p.vermelhos} vermelho${p.vermelhos > 1 ? "s" : ""}` : "✓ Completo") : `${p.pendentes} a confirmar`}
                       </span>
-                    </button>
+                      <span
+                        aria-hidden="true"
+                        className="shrink-0 text-white/60"
+                        style={{ fontSize: 18, lineHeight: 1, display: "inline-block", transition: "transform .2s", transform: aberto ? "rotate(180deg)" : "none" }}
+                      >
+                        ▾
+                      </span>
+                      </button>
+                      {aberto && <div className="px-3 pb-3">{detalhe}</div>}
+                    </div>
                   );
                 })}
               </div>
             </>
           )}
 
-          {postoId && (
-            <>
-              <button type="button" onClick={() => setPostoId(null)} className="text-xs text-white/60 mb-2">
-                ← Todos os postos
-              </button>
-              {!dia && !erro && <p className="text-sm text-white/50">Carregando...</p>}
-              {dia && (
-                <>
-                  <p className="text-white font-bold m-0 mb-1" style={{ fontSize: 17, fontFamily: FONTES.titulo }}>
-                    {dia.posto.nome}
-                  </p>
-                  {!dia.podeMarcar && (
-                    <p className="text-xs text-amber-300 mt-1">
-                      {data > hoje ? "Dia futuro: só consulta." : "Só consulta: o supervisor marca até 7 dias para trás."}
-                    </p>
-                  )}
-                  {dia.colaboradores.length === 0 && <p className="text-sm text-white/50">Ninguém nesta aba neste dia.</p>}
-                  {grupos.map(([area, linhas]) => (
-                    <div key={area} className="mt-3">
-                      <p className="text-[11px] uppercase tracking-wider text-white/45 mb-2" style={{ fontFamily: FONTES.mono }}>
-                        {area}
-                      </p>
-                      {linhas.map((l) => (
-                        <CartaoColaborador
-                          key={l.id}
-                          linha={l}
-                          reserva={dia.posto.tipo === "RESERVA"}
-                          podeMarcar={dia.podeMarcar}
-                          ocupado={ocupado}
-                          onMarcar={marcar}
-                          onAcao={setAcao}
-                          onDesmarcar={desmarcar}
-                        />
-                      ))}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setAcao({ tipo: "novoIniciante", posto: { id: dia.posto.id, nome: dia.posto.nome } })}
-                    className="w-full h-11 rounded-xl border border-dashed border-white/20 text-white/70 text-sm mt-3"
-                  >
-                    ＋ Cadastrar iniciante neste posto
-                  </button>
-                </>
-              )}
-            </>
-          )}
         </div>
       </div>
 
