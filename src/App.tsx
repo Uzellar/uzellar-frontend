@@ -31,6 +31,7 @@ import Veiculos from "./pages/Veiculos";
 import LocalizacaoEquipe from "./pages/LocalizacaoEquipe";
 import ConfirmacaoPosto from "./pages/ConfirmacaoPosto";
 import PostosHistorico from "./pages/PostosHistorico";
+import EquipamentosPosto from "./pages/EquipamentosPosto";
 import RastreioLocalizacao from "./components/RastreioLocalizacao";
 
 // Rotas protegidas (painel administrativo) exigem login — se não
@@ -133,6 +134,16 @@ export default function App() {
           element={
             <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
               <PostosHistorico />
+            </RotaComPerfil>
+          }
+        />
+
+        {/* Equipamentos do posto (11/2026) — Master e Supervisor (exclusão só Master, no servidor) */}
+        <Route
+          path="/equipamentos-posto"
+          element={
+            <RotaComPerfil perfis={["ADMIN_MASTER", "SUPERVISOR"]}>
+              <EquipamentosPosto />
             </RotaComPerfil>
           }
         />
