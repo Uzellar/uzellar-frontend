@@ -7,7 +7,8 @@ export const BASE_POSTOS = `${API_URL}/api/postos`;
 
 export type Aba = "DIURNO" | "LIMPEZA" | "NOTURNO";
 export type Status = "CONFIRMADO" | "FALTA" | "RECOLHIMENTO" | "FOLGA" | "VAGO";
-export type TipoCobertura = "RESERVA" | "FREELANCER" | "SEM_COBERTURA";
+// SEM_COBERTURA só aparece em registros antigos (a tela não oferece mais).
+export type TipoCobertura = "RESERVA" | "FT" | "FREELANCER" | "OUTROS" | "SEM_COBERTURA";
 
 export const ABAS: { aba: Aba; titulo: string; subtitulo: string }[] = [
   { aba: "DIURNO", titulo: "☀️ Diurno", subtitulo: "Portaria e Zeladoria e Manutenção" },
@@ -31,7 +32,9 @@ export const ROTULO_STATUS: Record<string, string> = {
 
 export const ROTULO_COBERTURA: Record<string, string> = {
   RESERVA: "Reserva Técnica",
-  FREELANCER: "Free lancer",
+  FT: "FT (folga trabalhada)",
+  FREELANCER: "Freelancer",
+  OUTROS: "Outros",
   SEM_COBERTURA: "Sem cobertura",
 };
 
@@ -92,6 +95,9 @@ export interface LinhaColaborador {
   iniciante?: boolean;
   plantao: boolean | null;
   registro: RegistroDia | null;
+  // Remanejamento: de onde veio (no posto novo) / para onde vai (no posto atual).
+  remanejadoDe?: { inicio: string; posto: string; reserva: boolean; usuarioNome: string | null; criadoEm: string } | null;
+  remanejadoPara?: { inicio: string; posto: string; usuarioNome: string | null; criadoEm: string } | null;
 }
 
 export interface PostoResumo {
@@ -114,6 +120,27 @@ export interface ReservaOpcao {
   horario: string | null;
   plantao: boolean | null;
   cobrindo: string | null;
+}
+
+// Colaborador que pode cobrir uma falta como FT (qualquer posto, inclusive Reserva Técnica).
+export interface FtOpcao {
+  id: string;
+  nome: string;
+  matricula: string | null;
+  posto: string;
+  postoTipo: string;
+  mesmoPosto: boolean;
+  area: string;
+  turno: string;
+  horario: string | null;
+  plantao: boolean | null;
+  situacao: string | null;
+  cobrindo: string | null;
+}
+
+export function dataHoraBr(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 }
 
 export async function apiPostos<T>(caminho: string, opcoes: RequestInit = {}, erroPadrao = "Não foi possível concluir. Tente de novo."): Promise<T> {
