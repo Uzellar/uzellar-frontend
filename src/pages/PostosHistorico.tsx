@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
 import SeletorCondominio from "../components/SeletorCondominio";
-import { ABAS, ROTULO_AREA, ROTULO_COBERTURA, ROTULO_STATUS, apiPostos, corDoStatus, dataBr, hojeBrasilia, moeda, somarDias } from "../lib/postos";
+import { ABAS, ROTULO_AREA, ROTULO_COBERTURA, ROTULO_STATUS, apiPostos, corDoStatus, dataBr, dataHoraBr, hojeBrasilia, moeda, somarDias } from "../lib/postos";
 import type { PostoResumo } from "../lib/postos";
 
 // Histórico da confirmação de posto: marcações do dia (confirmado, falta,
@@ -36,10 +36,32 @@ interface EventoHist {
   usuarioNome: string | null;
 }
 
+interface RemanejamentoHist {
+  id: string;
+  nome: string;
+  matricula: string | null;
+  postoOrigem: string;
+  postoOrigemTipo: string;
+  postoDestino: string;
+  inicio: string;
+  usuarioNome: string | null;
+  criadoEm: string;
+  desfeitoEm: string | null;
+}
+
 interface Resposta {
-  resumo: { porStatus: Record<string, number>; reserva: number; freelancer: number; semCobertura: number; valorFreelancer: number };
+  resumo: {
+    porStatus: Record<string, number>;
+    reserva: number;
+    ft?: number;
+    outros?: number;
+    freelancer: number;
+    semCobertura: number;
+    valorFreelancer: number;
+  };
   registros: RegistroHist[];
   eventos: EventoHist[];
+  remanejamentos?: RemanejamentoHist[];
 }
 
 const ROTULO_EVENTO: Record<string, string> = {
@@ -50,7 +72,7 @@ const ROTULO_EVENTO: Record<string, string> = {
   INICIANTE: "Iniciante",
   EDICAO: "Cadastro alterado",
   DESFEITO: "Recolhimento desfeito",
-  TRANSFERENCIA: "Saída da Reserva Técnica",
+  TRANSFERENCIA: "Remanejamento (saída)",
 };
 
 const campo = "h-10 rounded-lg bg-white/5 border border-white/15 px-3 text-sm text-white";
@@ -95,6 +117,22 @@ function baixarCsv(registros: RegistroHist[]) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+function baixarCsvRemanejamentos(lista: RemanejamentoHist[]) {
+  const cab = ["Colaborador", "Matrícula", "De", "Para", "A partir de", "Remanejado por", "Registrado em", "Situação"];
+  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const linhas = lista.map((m) =>
+    [m.nome, m.matricula, m.postoOrigem, m.postoDestino, dataBr(m.inicio), m.usuarioNome, dataHoraBr(m.criadoEm), m.desfeitoEm ? "Desfeito" : "Valendo"]
+      .map(esc)
+      .join(";"),
+  );
+  const blob = new Blob(["\ufeff" + [cab.map(esc).join(";"), ...linhas].join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `remanejamentos-${hojeBrasilia()}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
 export default function PostosHistorico() {
   const hoje = hojeBrasilia();
   const [de, setDe] = useState(somarDias(hoje, -6));
@@ -107,7 +145,7 @@ export default function PostosHistorico() {
   const [postos, setPostos] = useState<{ id: string; nome: string }[]>([]);
   const [dados, setDados] = useState<Resposta | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [ver, setVer] = useState<"marcacoes" | "trocas">("marcacoes");
+  const [ver, setVer] = useState<"marcacoes" | "trocas" | "remanejamentos">("marcacoes");
 
   // Lista de postos para o filtro (os do usuário, em qualquer aba).
   useEffect(() => {
@@ -162,7 +200,7 @@ export default function PostosHistorico() {
           <p style={{ fontSize: 22, fontWeight: 900, color: CORES.texto, margin: "6px 0 0", fontFamily: FONTES.titulo, letterSpacing: "-0.02em" }}>
             Histórico de postos
           </p>
-          <p style={{ fontSize: 12, color: "#8a8a8a", margin: "4px 0 16px" }}>Faltas, recolhimentos, iniciantes e coberturas por período e posto.</p>
+          <p style={{ fontSize: 12, color: "#8a8a8a", margin: "4px 0 16px" }}>Faltas, recolhimentos, iniciantes, coberturas e remanejamentos por período e posto.</p>
 
           <div className="flex flex-wrap gap-2 mb-2">
             <label className="text-[11px] text-white/50 flex flex-col gap-1">
@@ -211,9 +249,11 @@ export default function PostosHistorico() {
               <Cartao rotulo="Recolhimentos" valor={r.porStatus.RECOLHIMENTO ?? 0} cor="#ff6b6b" />
               <Cartao rotulo="Postos vagos" valor={r.porStatus.VAGO ?? 0} cor="#ff6b6b" />
               <Cartao rotulo="Coberturas da Reserva" valor={r.reserva} />
-              <Cartao rotulo="Free lancers" valor={r.freelancer} />
-              <Cartao rotulo="Sem cobertura" valor={r.semCobertura} cor={r.semCobertura ? "#fbbf24" : undefined} />
-              <Cartao rotulo="Gasto com free lancer" valor={moeda(r.valorFreelancer) || "R$ 0,00"} />
+              <Cartao rotulo="FT (folga trabalhada)" valor={r.ft ?? 0} />
+              <Cartao rotulo="Freelancers" valor={r.freelancer} />
+              <Cartao rotulo="Outros" valor={r.outros ?? 0} />
+              {r.semCobertura > 0 && <Cartao rotulo="Sem cobertura (antigos)" valor={r.semCobertura} cor="#fbbf24" />}
+              <Cartao rotulo="Gasto com freelancer" valor={moeda(r.valorFreelancer) || "R$ 0,00"} />
             </div>
           )}
 
@@ -222,6 +262,7 @@ export default function PostosHistorico() {
               {[
                 { v: "marcacoes" as const, rot: `Marcações do dia${dados ? ` (${dados.registros.length})` : ""}` },
                 { v: "trocas" as const, rot: `Trocas no posto${dados ? ` (${dados.eventos.length})` : ""}` },
+                { v: "remanejamentos" as const, rot: `Remanejamentos${dados ? ` (${dados.remanejamentos?.length ?? 0})` : ""}` },
               ].map((o) => (
                 <button
                   key={o.v}
@@ -235,6 +276,11 @@ export default function PostosHistorico() {
             </div>
             {ver === "marcacoes" && !!dados?.registros.length && (
               <button type="button" onClick={() => baixarCsv(dados.registros)} className="h-9 px-4 rounded-full border border-white/15 text-white/80 text-xs">
+                ⬇ Baixar planilha
+              </button>
+            )}
+            {ver === "remanejamentos" && !!dados?.remanejamentos?.length && (
+              <button type="button" onClick={() => baixarCsvRemanejamentos(dados.remanejamentos ?? [])} className="h-9 px-4 rounded-full border border-white/15 text-white/80 text-xs">
                 ⬇ Baixar planilha
               </button>
             )}
@@ -281,6 +327,34 @@ export default function PostosHistorico() {
                       </div>
                     );
                   })}
+                </div>
+              ))}
+            </>
+          )}
+
+          {dados && ver === "remanejamentos" && (
+            <>
+              {!dados.remanejamentos?.length && <p className="text-sm text-white/50">Nenhum remanejamento no período.</p>}
+              {dados.remanejamentos?.map((m) => (
+                <div
+                  key={m.id}
+                  className="rounded-xl px-3 py-2 mb-2 border"
+                  style={{ borderColor: m.desfeitoEm ? CORES.borda : "rgba(96,165,250,0.4)", background: m.desfeitoEm ? "rgba(255,255,255,0.02)" : "rgba(96,165,250,0.06)", opacity: m.desfeitoEm ? 0.6 : 1 }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm text-white font-semibold break-words" style={{ minWidth: 0 }}>
+                      🔀 {m.nome}
+                      {m.matricula ? <span className="text-[11px] text-white/45 font-normal"> · Mat. {m.matricula}</span> : null}
+                    </span>
+                    <span className="text-[11px] text-white/60 shrink-0">a partir de {dataBr(m.inicio)}</span>
+                  </div>
+                  <p className="text-xs text-white/80 m-0 mt-1">
+                    {m.postoOrigem} → <b>{m.postoDestino}</b>
+                  </p>
+                  <p className="text-[10px] text-white/45 m-0 mt-1">
+                    Remanejado por {m.usuarioNome ?? "—"} em {dataHoraBr(m.criadoEm)}
+                    {m.desfeitoEm ? ` · desfeito em ${dataHoraBr(m.desfeitoEm)}` : ""}
+                  </p>
                 </div>
               ))}
             </>
