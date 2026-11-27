@@ -22,6 +22,8 @@ import {
   somarDias,
 } from "../lib/postos";
 import type { Aba, FtOpcao, LinhaColaborador, PostoResumo, ReservaOpcao, Status, TipoCobertura } from "../lib/postos";
+import { ativarPush, estadoPush } from "../lib/anotacoes";
+import type { EstadoPush } from "../lib/anotacoes";
 
 // Confirmação de posto operacional (11/2026). O supervisor escolhe a aba
 // (Diurno, Limpeza ou Noturno), o posto e confirma cada colaborador do
@@ -86,6 +88,59 @@ function Janela({ titulo, onFechar, children }: { titulo: string; onFechar: () =
 
 function Rotulo({ children }: { children: ReactNode }) {
   return <p className="text-xs text-white/60 mt-3 mb-1">{children}</p>;
+}
+
+// ---------------- aviso de notificações ----------------
+
+// Avisos de posto sem confirmação (15 min depois do horário) chegam por
+// notificação no celular. Some quando as notificações já estão ativas.
+function AvisoNotificacoes() {
+  const [estado, setEstado] = useState<EstadoPush | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    estadoPush().then(setEstado).catch(() => setEstado(null));
+  }, []);
+
+  if (estado === null || estado === "ativado") return null;
+
+  const ativar = async () => {
+    setOcupado(true);
+    setErro(null);
+    try {
+      await ativarPush();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setOcupado(false);
+      estadoPush().then(setEstado).catch(() => undefined);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 mb-3">
+      <p className="text-sm font-bold text-white m-0">🔔 Avisos de posto sem confirmação</p>
+      <p className="text-xs text-white/60 mt-1 mb-0">
+        Ative as notificações neste aparelho para ser avisado quando um posto seu não for confirmado até 15 minutos depois do horário.
+      </p>
+      {estado === "bloqueado" && (
+        <p className="text-xs text-amber-300 mt-2 mb-0">Bloqueadas neste navegador. Libere as notificações do Uzellar nas configurações do celular/navegador e volte aqui.</p>
+      )}
+      {estado === "instalar-iphone" && (
+        <p className="text-xs text-amber-300 mt-2 mb-0">
+          No iPhone, as notificações só funcionam com o Uzellar instalado: no Safari, toque em Compartilhar → “Adicionar à Tela de Início” e abra o Uzellar pelo ícone.
+        </p>
+      )}
+      {estado === "sem-suporte" && <p className="text-xs text-amber-300 mt-2 mb-0">Este navegador não recebe notificações. Use o Chrome (Android/computador) ou o app instalado no iPhone.</p>}
+      {estado === "desativado" && (
+        <button type="button" disabled={ocupado} onClick={ativar} className="h-9 px-4 mt-2 rounded-lg bg-[#FF3B3B] text-white text-sm font-semibold disabled:opacity-40">
+          {ocupado ? "Ativando..." : "Ativar notificações"}
+        </button>
+      )}
+      {erro && <p className="text-xs text-red-400 mt-2 mb-0">{erro}</p>}
+    </div>
+  );
 }
 
 // ---------------- cobertura (falta / posto vago) ----------------
@@ -1635,6 +1690,7 @@ export default function ConfirmacaoPosto() {
             </Link>
           </div>
           <p style={{ fontSize: 12, color: "#8a8a8a", margin: "4px 0 16px" }}>Confirme diariamente quem está no posto.</p>
+          <AvisoNotificacoes />
 
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             {ABAS.map((a) => {
