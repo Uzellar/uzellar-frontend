@@ -14,13 +14,14 @@ import {
   apiPostos,
   corDoStatus,
   dataBr,
+  dataHoraBr,
   diaDaSemana,
   hojeBrasilia,
   moeda,
   rotuloRegra,
   somarDias,
 } from "../lib/postos";
-import type { Aba, LinhaColaborador, PostoResumo, ReservaOpcao, Status, TipoCobertura } from "../lib/postos";
+import type { Aba, FtOpcao, LinhaColaborador, PostoResumo, ReservaOpcao, Status, TipoCobertura } from "../lib/postos";
 
 // Confirmação de posto operacional (11/2026). O supervisor escolhe a aba
 // (Diurno, Limpeza ou Noturno), o posto e confirma cada colaborador do
@@ -91,28 +92,57 @@ function Rotulo({ children }: { children: ReactNode }) {
 
 function EscolhaCobertura({
   data,
+  postoId,
+  faltouId,
   tipo,
   setTipo,
   reservaId,
   setReservaId,
+  ftId,
+  ftRotulo,
+  setFt,
   nomeFree,
   setNomeFree,
   valorFree,
   setValorFree,
+  outros,
+  setOutros,
 }: {
   data: string;
+  postoId: string;
+  faltouId: string;
   tipo: TipoCobertura | null;
   setTipo: (t: TipoCobertura) => void;
   reservaId: string | null;
   setReservaId: (id: string) => void;
+  ftId: string | null;
+  ftRotulo: string;
+  setFt: (id: string, rotulo: string) => void;
   nomeFree: string;
   setNomeFree: (v: string) => void;
   valorFree: string;
   setValorFree: (v: string) => void;
+  outros: string;
+  setOutros: (v: string) => void;
 }) {
   const [reservas, setReservas] = useState<ReservaOpcao[] | null>(null);
   const [busca, setBusca] = useState("");
   const [sugestoes, setSugestoes] = useState<{ nome: string; vezes: number }[]>([]);
+  const [buscaFt, setBuscaFt] = useState("");
+  const [listaFt, setListaFt] = useState<FtOpcao[] | null>(null);
+
+  // FT: colegas do mesmo posto primeiro; pesquisa em todos os postos (inclusive Reserva Técnica).
+  useEffect(() => {
+    if (tipo !== "FT") return;
+    const t = setTimeout(() => {
+      const q = new URLSearchParams({ data, postoId });
+      if (buscaFt.trim()) q.set("q", buscaFt.trim());
+      apiPostos<FtOpcao[]>(`/ft?${q.toString()}`)
+        .then((l) => setListaFt(l.filter((x) => x.id !== faltouId)))
+        .catch(() => setListaFt([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [tipo, buscaFt, data, postoId, faltouId]);
 
   useEffect(() => {
     if (tipo !== "RESERVA" || reservas) return;
@@ -138,14 +168,15 @@ function EscolhaCobertura({
 
   const opcoes: { valor: TipoCobertura; rotulo: string }[] = [
     { valor: "RESERVA", rotulo: "Reserva Técnica" },
-    { valor: "FREELANCER", rotulo: "Free lancer" },
-    { valor: "SEM_COBERTURA", rotulo: "Sem cobertura" },
+    { valor: "FT", rotulo: "FT" },
+    { valor: "FREELANCER", rotulo: "Freelancer" },
+    { valor: "OUTROS", rotulo: "Outros" },
   ];
 
   return (
     <>
       <Rotulo>Quem cobriu?</Rotulo>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {opcoes.map((o) => (
           <button
             key={o.valor}
@@ -191,9 +222,62 @@ function EscolhaCobertura({
         </div>
       )}
 
+      {tipo === "FT" && (
+        <div className="mt-3">
+          <p className="text-[11px] text-white/50 m-0 mb-2">FT (folga trabalhada): colaborador deste posto, de outro posto ou da Reserva Técnica de outro plantão.</p>
+          {ftId && (
+            <div className="rounded-lg border px-3 py-2 mb-2 text-sm text-white" style={{ borderColor: "rgba(52,211,153,0.5)", background: "rgba(52,211,153,0.10)" }}>
+              ✓ {ftRotulo}
+            </div>
+          )}
+          <input value={buscaFt} onChange={(e) => setBuscaFt(e.target.value)} placeholder="Pesquisar colaborador ou posto" className={estiloCampo} />
+          <div className="mt-2 rounded-lg border border-white/10" style={{ maxHeight: 260, overflowY: "auto" }}>
+            {listaFt === null && <p className="text-xs text-white/50 p-3 m-0">Carregando...</p>}
+            {listaFt?.length === 0 && <p className="text-xs text-white/50 p-3 m-0">Ninguém encontrado.</p>}
+            {listaFt?.map((c) => {
+              const escolhido = c.id === ftId;
+              const ocupado = !!c.cobrindo && !escolhido;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => setFt(c.id, `${c.nome} (${c.posto})`)}
+                  className={`w-full text-left px-3 py-2 border-b border-white/5 ${escolhido ? "bg-emerald-500/15" : ""} ${ocupado ? "opacity-40" : ""}`}
+                >
+                  <span className="block text-sm text-white">
+                    {escolhido ? "✓ " : ""}
+                    {c.nome}
+                    {c.mesmoPosto && <span className="text-[10px] text-emerald-300 ml-2">mesmo posto</span>}
+                  </span>
+                  <span className="block text-[11px] text-white/50">
+                    {c.posto} · {ROTULO_AREA[c.area] ?? c.area} · {c.turno === "NOTURNO" ? "Noturno" : "Diurno"}
+                    {c.horario ? ` · ${c.horario}` : ""}
+                    {c.cobrindo
+                      ? ` · já cobrindo ${c.cobrindo}`
+                      : c.situacao
+                        ? ` · ${c.situacao} neste dia`
+                        : c.plantao === false
+                          ? " · de folga pela escala"
+                          : ""}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tipo === "OUTROS" && (
+        <div className="mt-3">
+          <Rotulo>Descreva quem cobriu</Rotulo>
+          <input value={outros} onChange={(e) => setOutros(e.target.value)} placeholder="Ex.: zelador do condomínio dobrou o turno" className={estiloCampo} maxLength={120} />
+        </div>
+      )}
+
       {tipo === "FREELANCER" && (
         <div className="mt-3">
-          <input value={nomeFree} onChange={(e) => setNomeFree(e.target.value)} placeholder="Nome do free lancer" className={estiloCampo} maxLength={120} />
+          <input value={nomeFree} onChange={(e) => setNomeFree(e.target.value)} placeholder="Nome do freelancer" className={estiloCampo} maxLength={120} />
           {sugestoes.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {sugestoes
@@ -230,20 +314,26 @@ function lerValor(texto: string): number | undefined | null {
 
 function JanelaCobertura({
   linha,
+  postoId,
   data,
   status,
   onFechar,
   onSalvo,
 }: {
   linha: LinhaColaborador;
+  postoId: string;
   data: string;
   status: "FALTA" | "VAGO";
   onFechar: () => void;
   onSalvo: () => void;
 }) {
   const r = linha.registro && linha.registro.status === status ? linha.registro : null;
-  const [tipo, setTipo] = useState<TipoCobertura | null>(r?.coberturaTipo ?? null);
+  // "Sem cobertura" (registros antigos) não é mais opção: pede para escolher de novo.
+  const [tipo, setTipo] = useState<TipoCobertura | null>(r?.coberturaTipo && r.coberturaTipo !== "SEM_COBERTURA" ? r.coberturaTipo : null);
   const [reservaId, setReservaId] = useState<string | null>(r?.coberturaTipo === "RESERVA" ? r.coberturaColaboradorId : null);
+  const [ftId, setFtId] = useState<string | null>(r?.coberturaTipo === "FT" ? r.coberturaColaboradorId : null);
+  const [ftRotulo, setFtRotulo] = useState(r?.coberturaTipo === "FT" ? r.coberturaNome ?? "" : "");
+  const [outros, setOutros] = useState(r?.coberturaTipo === "OUTROS" ? r.coberturaNome ?? "" : "");
   const [nomeFree, setNomeFree] = useState(r?.coberturaTipo === "FREELANCER" ? r.coberturaNome ?? "" : "");
   const [valorFree, setValorFree] = useState(r?.coberturaValor != null ? String(r.coberturaValor).replace(".", ",") : "");
   const [obs, setObs] = useState(r?.observacao ?? "");
@@ -254,7 +344,9 @@ function JanelaCobertura({
     setErro(null);
     if (!tipo) return setErro("Escolha quem cobriu.");
     if (tipo === "RESERVA" && !reservaId) return setErro("Escolha a pessoa da Reserva Técnica.");
-    if (tipo === "FREELANCER" && !nomeFree.trim()) return setErro("Informe o nome do free lancer.");
+    if (tipo === "FT" && !ftId) return setErro("Escolha o colaborador que fez a FT.");
+    if (tipo === "OUTROS" && !outros.trim()) return setErro("Descreva quem cobriu.");
+    if (tipo === "FREELANCER" && !nomeFree.trim()) return setErro("Informe o nome do freelancer.");
     const valor = tipo === "FREELANCER" ? lerValor(valorFree) : undefined;
     if (valor === null) return setErro("Valor da diária inválido.");
     setSalvando(true);
@@ -267,6 +359,8 @@ function JanelaCobertura({
           status,
           coberturaTipo: tipo,
           ...(tipo === "RESERVA" ? { coberturaColaboradorId: reservaId } : {}),
+          ...(tipo === "FT" ? { coberturaColaboradorId: ftId } : {}),
+          ...(tipo === "OUTROS" ? { coberturaNome: outros.trim() } : {}),
           ...(tipo === "FREELANCER" ? { coberturaNome: nomeFree.trim(), ...(valor !== undefined ? { coberturaValor: valor } : {}) } : {}),
           ...(obs.trim() ? { observacao: obs.trim() } : {}),
         }),
@@ -289,10 +383,20 @@ function JanelaCobertura({
       </p>
       <EscolhaCobertura
         data={data}
+        postoId={postoId}
+        faltouId={linha.id}
         tipo={tipo}
         setTipo={setTipo}
         reservaId={reservaId}
         setReservaId={setReservaId}
+        ftId={ftId}
+        ftRotulo={ftRotulo}
+        setFt={(id, rotulo) => {
+          setFtId(id);
+          setFtRotulo(rotulo);
+        }}
+        outros={outros}
+        setOutros={setOutros}
         nomeFree={nomeFree}
         setNomeFree={setNomeFree}
         valorFree={valorFree}
@@ -670,13 +774,16 @@ function JanelaCadastro({
               type="button"
               disabled={salvando}
               onClick={() => {
-                if (confirm(`Devolver ${linha.nome} para a Reserva Técnica? Use só se a pessoa foi remanejada da reserva por engano.`)) {
+                const volta = linha.remanejadoDe && !linha.remanejadoDe.reserva ? linha.remanejadoDe.posto : "a Reserva Técnica";
+                if (confirm(`Devolver ${linha.nome} para ${volta}? Use só se o remanejamento foi feito por engano.`)) {
                   enviar(`/colaboradores/${linha.id}/devolver-reserva`, "POST", {});
                 }
               }}
               className="w-full h-10 text-xs text-white/50 underline"
             >
-              Devolver para a Reserva Técnica (desfazer remanejamento)
+              {linha.remanejadoDe && !linha.remanejadoDe.reserva
+                ? `Desfazer remanejamento (volta para ${linha.remanejadoDe.posto})`
+                : "Devolver para a Reserva Técnica (desfazer remanejamento)"}
             </button>
           )}
         </>
@@ -715,7 +822,20 @@ interface ColabPosto {
   turno: string;
 }
 
-function JanelaRemanejar({ linha, data, onFechar, onSalvo }: { linha: LinhaColaborador; data: string; onFechar: () => void; onSalvo: () => void }) {
+function JanelaRemanejar({
+  linha,
+  data,
+  postoAtual,
+  onFechar,
+  onSalvo,
+}: {
+  linha: LinhaColaborador;
+  data: string;
+  postoAtual: { id: string; nome: string; reserva: boolean } | null;
+  onFechar: () => void;
+  onSalvo: () => void;
+}) {
+  const daReserva = postoAtual?.reserva ?? true;
   const [postos, setPostos] = useState<{ id: string; nome: string }[] | null>(null);
   const [busca, setBusca] = useState("");
   const [destino, setDestino] = useState<{ id: string; nome: string } | null>(null);
@@ -735,11 +855,11 @@ function JanelaRemanejar({ linha, data, onFechar, onSalvo }: { linha: LinhaColab
     Promise.all(ABAS.map((a) => apiPostos<{ postos: PostoResumo[] }>(`/lista?data=${data}&aba=${a.aba}`).catch(() => ({ postos: [] as PostoResumo[] }))))
       .then((rs) => {
         const mapa = new Map<string, string>();
-        rs.forEach((r) => r.postos.filter((p) => p.tipo !== "RESERVA").forEach((p) => mapa.set(p.id, p.nome)));
+        rs.forEach((r) => r.postos.filter((p) => p.tipo !== "RESERVA" && p.id !== postoAtual?.id).forEach((p) => mapa.set(p.id, p.nome)));
         setPostos([...mapa.entries()].map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
       })
       .catch(() => setPostos([]));
-  }, [data]);
+  }, [data, postoAtual?.id]);
 
   useEffect(() => {
     setVagas([]);
@@ -788,7 +908,11 @@ function JanelaRemanejar({ linha, data, onFechar, onSalvo }: { linha: LinhaColab
 
   return (
     <Janela titulo={`Remanejar — ${linha.nome}`} onFechar={onFechar}>
-      <p className="text-xs text-white/60 m-0">A pessoa sai da Reserva Técnica e passa a fazer parte do posto escolhido a partir da data de início.</p>
+      <p className="text-xs text-white/60 m-0">
+        {daReserva
+          ? "A pessoa sai da Reserva Técnica e passa a fazer parte do posto escolhido a partir da data de início."
+          : `A pessoa sai de ${postoAtual?.nome ?? "este posto"} e passa a fazer parte do posto escolhido a partir da data de início. Em ${postoAtual?.nome ?? "este posto"} fica uma Vaga em aberto no lugar dela.`}
+      </p>
       <Rotulo>Remanejado para o posto</Rotulo>
       {destino ? (
         <div className="rounded-lg border px-3 py-2 flex items-center justify-between gap-2" style={{ borderColor: "rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.10)" }}>
@@ -1177,6 +1301,23 @@ function CartaoColaborador({
         </div>
       </div>
 
+      {linha.remanejadoDe && (
+        <p className="m-0 mt-2 text-[11px]" style={{ color: "#93c5fd" }}>
+          🔀 Remanejado(a) {linha.remanejadoDe.reserva ? "da Reserva Técnica" : `de ${linha.remanejadoDe.posto}`} a partir de {dataBr(linha.remanejadoDe.inicio)}
+          <span className="block text-white/45">
+            por {linha.remanejadoDe.usuarioNome ?? "—"} em {dataHoraBr(linha.remanejadoDe.criadoEm)}
+          </span>
+        </p>
+      )}
+      {linha.remanejadoPara && (
+        <p className="m-0 mt-2 text-[11px]" style={{ color: "#93c5fd" }}>
+          🔀 Remanejado(a) para {linha.remanejadoPara.posto} a partir de {dataBr(linha.remanejadoPara.inicio)}
+          <span className="block text-white/45">
+            por {linha.remanejadoPara.usuarioNome ?? "—"} em {dataHoraBr(linha.remanejadoPara.criadoEm)}
+          </span>
+        </p>
+      )}
+
       {reg && (reg.coberturaTipo || reg.observacao) && (
         <p className="m-0 mt-2 text-xs text-white/75">
           {reg.coberturaTipo && (
@@ -1216,7 +1357,7 @@ function CartaoColaborador({
         </div>
       )}
 
-      {reserva && !linha.vaga && (
+      {reserva && !linha.vaga && !linha.remanejadoPara && (
         <button
           type="button"
           onClick={() => onAcao({ tipo: "remanejar", linha })}
@@ -1224,6 +1365,11 @@ function CartaoColaborador({
           style={{ borderColor: "rgba(96,165,250,0.5)", color: "#93c5fd", background: "rgba(96,165,250,0.08)" }}
         >
           🔀 Remanejado para posto
+        </button>
+      )}
+      {!reserva && !linha.vaga && !linha.remanejadoPara && (
+        <button type="button" onClick={() => onAcao({ tipo: "remanejar", linha })} className="mt-2 text-[11px] underline" style={{ color: "#93c5fd" }}>
+          🔀 Remanejar para outro posto
         </button>
       )}
 
@@ -1552,10 +1698,18 @@ export default function ConfirmacaoPosto() {
         </div>
       </div>
 
-      {acao?.tipo === "cobertura" && <JanelaCobertura linha={acao.linha} data={data} status={acao.status} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "cobertura" && <JanelaCobertura linha={acao.linha} postoId={postoId ?? ""} data={data} status={acao.status} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "recolhimento" && <JanelaRecolhimento linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "iniciante" && <JanelaIniciante linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
-      {acao?.tipo === "remanejar" && <JanelaRemanejar linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "remanejar" && (
+        <JanelaRemanejar
+          linha={acao.linha}
+          data={data}
+          postoAtual={dia ? { id: dia.posto.id, nome: dia.posto.nome, reserva: dia.posto.tipo === "RESERVA" } : null}
+          onFechar={fecharAcao}
+          onSalvo={salvoAcao}
+        />
+      )}
       {acao?.tipo === "novoIniciante" && <JanelaNovoIniciante postoInicial={acao.posto} aba={aba} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "cadastro" && postoId && (
         <JanelaCadastro linha={acao.linha} postoId={postoId} ehReserva={dia?.posto.tipo === "RESERVA"} aba={aba} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />
