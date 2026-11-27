@@ -512,7 +512,27 @@ function CampoNovaPessoa({
 
 // ---------------- recolhimento ----------------
 
-function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaColaborador; data: string; onFechar: () => void; onSalvo: () => void }) {
+function JanelaRecolhimento({
+  linha,
+  postoId,
+  data,
+  onFechar,
+  onSalvo,
+}: {
+  linha: LinhaColaborador;
+  postoId: string;
+  data: string;
+  onFechar: () => void;
+  onSalvo: () => void;
+}) {
+  // Cobertura do dia do recolhimento (opcional): mesmas opções da falta.
+  const [tipo, setTipo] = useState<TipoCobertura | null>(null);
+  const [reservaId, setReservaId] = useState<string | null>(null);
+  const [ftId, setFtId] = useState<string | null>(null);
+  const [ftRotulo, setFtRotulo] = useState("");
+  const [outros, setOutros] = useState("");
+  const [nomeFree, setNomeFree] = useState("");
+  const [valorFree, setValorFree] = useState("");
   const [nome, setNome] = useState("");
   const [reserva, setReserva] = useState<PessoaReserva | null>(null);
   const [matricula, setMatricula] = useState("");
@@ -524,6 +544,12 @@ function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaCo
   const salvar = async () => {
     setErro(null);
     if (!inicio || inicio <= data) return setErro("A nova pessoa começa depois do dia do recolhimento.");
+    if (tipo === "RESERVA" && !reservaId) return setErro("Escolha a pessoa da Reserva Técnica.");
+    if (tipo === "FT" && !ftId) return setErro("Escolha o colaborador que fez a FT.");
+    if (tipo === "OUTROS" && !outros.trim()) return setErro("Descreva quem cobriu.");
+    if (tipo === "FREELANCER" && !nomeFree.trim()) return setErro("Informe o nome do freelancer.");
+    const valor = tipo === "FREELANCER" ? lerValor(valorFree) : undefined;
+    if (valor === null) return setErro("Valor da diária inválido.");
     setSalvando(true);
     try {
       await apiPostos("/registros", {
@@ -532,6 +558,11 @@ function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaCo
           colaboradorId: linha.id,
           data,
           status: "RECOLHIMENTO",
+          ...(tipo ? { coberturaTipo: tipo } : {}),
+          ...(tipo === "RESERVA" ? { coberturaColaboradorId: reservaId } : {}),
+          ...(tipo === "FT" ? { coberturaColaboradorId: ftId } : {}),
+          ...(tipo === "OUTROS" ? { coberturaNome: outros.trim() } : {}),
+          ...(tipo === "FREELANCER" ? { coberturaNome: nomeFree.trim(), ...(valor !== undefined ? { coberturaValor: valor } : {}) } : {}),
           novoInicio: inicio,
           ...(reserva ? { novoReservaId: reserva.id } : {}),
           ...(!reserva && nome.trim() ? { novoNome: nome.trim() } : {}),
@@ -551,6 +582,33 @@ function JanelaRecolhimento({ linha, data, onFechar, onSalvo }: { linha: LinhaCo
       <p className="text-xs text-white/60 m-0">
         {linha.nome} sai do posto. O último dia dele(a) é {dataBr(data)}. A nova pessoa assume com a mesma escala e o mesmo horário.
       </p>
+      <p className="text-[11px] text-white/50 mt-2 mb-0">Se alguém cobriu o posto em {dataBr(data)}, registre abaixo (opcional).</p>
+      <EscolhaCobertura
+        data={data}
+        postoId={postoId}
+        faltouId={linha.id}
+        tipo={tipo}
+        setTipo={setTipo}
+        reservaId={reservaId}
+        setReservaId={setReservaId}
+        ftId={ftId}
+        ftRotulo={ftRotulo}
+        setFt={(id, rotulo) => {
+          setFtId(id);
+          setFtRotulo(rotulo);
+        }}
+        outros={outros}
+        setOutros={setOutros}
+        nomeFree={nomeFree}
+        setNomeFree={setNomeFree}
+        valorFree={valorFree}
+        setValorFree={setValorFree}
+      />
+      {tipo && (
+        <button type="button" onClick={() => setTipo(null)} className="text-[11px] text-white/60 underline mt-2">
+          Ninguém cobriu (limpar)
+        </button>
+      )}
       <Rotulo>Nova pessoa no posto</Rotulo>
       <CampoNovaPessoa
         data={data}
@@ -1713,7 +1771,7 @@ export default function ConfirmacaoPosto() {
       </div>
 
       {acao?.tipo === "cobertura" && <JanelaCobertura linha={acao.linha} postoId={postoId ?? ""} data={data} status={acao.status} onFechar={fecharAcao} onSalvo={salvoAcao} />}
-      {acao?.tipo === "recolhimento" && <JanelaRecolhimento linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "recolhimento" && <JanelaRecolhimento linha={acao.linha} postoId={postoId ?? ""} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "iniciante" && <JanelaIniciante linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "remanejar" && (
         <JanelaRemanejar
