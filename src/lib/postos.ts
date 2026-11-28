@@ -122,6 +122,24 @@ export interface ReservaOpcao {
   cobrindo: string | null;
 }
 
+// Apoio extra por evento (11/2026): reforço no posto que não cobre ninguém.
+export interface ApoioExtra {
+  id: string;
+  postoId: string;
+  posto?: string;
+  data: string;
+  area: string;
+  turno: string;
+  motivo: string;
+  coberturaTipo: "RESERVA" | "FT" | "FREELANCER";
+  coberturaColaboradorId: string | null;
+  coberturaNome: string;
+  coberturaValor: number | null;
+  observacao: string | null;
+  registradoPorNome: string;
+  criadoEm: string;
+}
+
 // Colaborador que pode cobrir uma falta como FT (qualquer posto, inclusive Reserva Técnica).
 export interface FtOpcao {
   id: string;
