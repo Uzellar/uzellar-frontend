@@ -4,7 +4,7 @@ import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
 import SeletorCondominio from "../components/SeletorCondominio";
 import { ABAS, ROTULO_AREA, ROTULO_COBERTURA, ROTULO_STATUS, apiPostos, corDoStatus, dataBr, dataHoraBr, hojeBrasilia, moeda, somarDias } from "../lib/postos";
-import type { PostoResumo } from "../lib/postos";
+import type { ApoioExtra, PostoResumo } from "../lib/postos";
 import { ehAdminMaster } from "../lib/api";
 
 // Histórico da confirmação de posto: marcações do dia (confirmado, falta,
@@ -148,7 +148,8 @@ export default function PostosHistorico() {
   const [postos, setPostos] = useState<{ id: string; nome: string }[]>([]);
   const [dados, setDados] = useState<Resposta | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [ver, setVer] = useState<"marcacoes" | "trocas" | "remanejamentos">("marcacoes");
+  const [ver, setVer] = useState<"marcacoes" | "trocas" | "remanejamentos" | "apoios">("marcacoes");
+  const [apoios, setApoios] = useState<ApoioExtra[] | null>(null);
 
   // Lista de postos para o filtro (os do usuário, em qualquer aba).
   useEffect(() => {
@@ -173,6 +174,13 @@ export default function PostosHistorico() {
     if (aba) q.set("aba", aba);
     if (status) q.set("status", status);
     if (nomeBusca) q.set("colaborador", nomeBusca);
+    // Apoio extra por evento (11/2026): mesmos filtros de período, posto e nome.
+    const qa = new URLSearchParams({ de, ate });
+    if (postoId) qa.set("postoId", postoId);
+    if (nomeBusca) qa.set("colaborador", nomeBusca);
+    apiPostos<ApoioExtra[]>(`/apoios-historico?${qa.toString()}`)
+      .then(setApoios)
+      .catch(() => setApoios([]));
     try {
       setDados(await apiPostos<Resposta>(`/historico?${q.toString()}`, {}, "Não foi possível carregar o histórico."));
       setErro(null);
@@ -266,6 +274,7 @@ export default function PostosHistorico() {
                 { v: "marcacoes" as const, rot: `Marcações do dia${dados ? ` (${dados.registros.length})` : ""}` },
                 { v: "trocas" as const, rot: `Trocas no posto${dados ? ` (${dados.eventos.length})` : ""}` },
                 { v: "remanejamentos" as const, rot: `Remanejamentos${dados ? ` (${dados.remanejamentos?.length ?? 0})` : ""}` },
+                { v: "apoios" as const, rot: `Apoio extra${apoios ? ` (${apoios.length})` : ""}` },
               ].map((o) => (
                 <button
                   key={o.v}
@@ -357,6 +366,30 @@ export default function PostosHistorico() {
                   <p className="text-[10px] text-white/45 m-0 mt-1">
                     Remanejado por {m.usuarioNome ?? "—"} em {dataHoraBr(m.criadoEm)}
                     {m.desfeitoEm ? ` · desfeito em ${dataHoraBr(m.desfeitoEm)}` : ""}
+                  </p>
+                </div>
+              ))}
+            </>
+          )}
+
+          {ver === "apoios" && (
+            <>
+              {apoios?.length === 0 && <p className="text-sm text-white/50">Nenhum apoio extra no período.</p>}
+              {apoios?.map((a) => (
+                <div key={a.id} className="rounded-xl px-3 py-2 mb-2 border" style={{ borderColor: "rgba(96,165,250,0.4)", background: "rgba(96,165,250,0.06)" }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm text-white font-semibold break-words" style={{ minWidth: 0 }}>
+                      ＋ {a.motivo}
+                    </span>
+                    <span className="text-[11px] text-white/60 shrink-0">{dataBr(a.data)}</span>
+                  </div>
+                  <p className="text-xs text-white/80 m-0 mt-1">
+                    {ROTULO_COBERTURA[a.coberturaTipo] ?? a.coberturaTipo} — {a.coberturaNome}
+                    {a.coberturaValor != null ? ` (${moeda(a.coberturaValor)})` : ""}
+                  </p>
+                  <p className="text-[10px] text-white/45 m-0 mt-1">
+                    {a.posto} · {ROTULO_AREA[a.area] ?? a.area} · registrado por {a.registradoPorNome}
+                    {a.observacao ? ` · ${a.observacao}` : ""}
                   </p>
                 </div>
               ))}

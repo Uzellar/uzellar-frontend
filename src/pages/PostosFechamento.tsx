@@ -13,6 +13,7 @@ import { BASE_POSTOS, apiPostos, dataBr, hojeBrasilia, moeda } from "../lib/post
 
 interface Linha {
   registroId: string;
+  origem: "COBERTURA" | "APOIO";
   tipo: "FT" | "FREELANCER";
   data: string;
   re: string | null;
@@ -29,6 +30,7 @@ interface Linha {
 
 interface Pendencia {
   registroId: string;
+  origem: "COBERTURA" | "APOIO";
   tipo: "FT" | "FREELANCER";
   data: string;
   nome: string;
@@ -96,7 +98,8 @@ function CampoValor({ linha, onSalvo }: { linha: Linha; onSalvo: () => void }) {
     if (v === undefined) return setEstado("erro");
     setEstado("salvando");
     try {
-      await apiPostos(`/registros/${linha.registroId}/valor`, { method: "PATCH", body: JSON.stringify({ valor: v }) }, "Não foi possível salvar o valor.");
+      const caminho = linha.origem === "APOIO" ? `/apoios/${linha.registroId}/valor` : `/registros/${linha.registroId}/valor`;
+      await apiPostos(caminho, { method: "PATCH", body: JSON.stringify({ valor: v }) }, "Não foi possível salvar o valor.");
       setEstado("ok");
       onSalvo();
     } catch {
@@ -323,7 +326,7 @@ export default function PostosFechamento() {
 
               <p className="text-[11px] text-white/40 mt-4">
                 FT sem valor digitado usa o padrão da função (Portaria e Zeladoria R$ 170, Limpeza R$ 150). FT reprogramada = data antes do período, lançada depois do início dele.
-                FTs que não são cobertura de posto (festas, eventos) não aparecem aqui — inclua direto na planilha.
+                Apoio extra por evento (registrado na Confirmação de posto) entra com o motivo "Apoio extra - …"; Reserva Técnica não entra.
               </p>
             </>
           )}

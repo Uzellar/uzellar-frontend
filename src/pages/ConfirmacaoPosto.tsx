@@ -21,7 +21,7 @@ import {
   rotuloRegra,
   somarDias,
 } from "../lib/postos";
-import type { Aba, FtOpcao, LinhaColaborador, PostoResumo, ReservaOpcao, Status, TipoCobertura } from "../lib/postos";
+import type { Aba, ApoioExtra, FtOpcao, LinhaColaborador, PostoResumo, ReservaOpcao, Status, TipoCobertura } from "../lib/postos";
 import { ativarPush, estadoPush } from "../lib/anotacoes";
 import { ehAdminMaster } from "../lib/api";
 import type { EstadoPush } from "../lib/anotacoes";
@@ -163,7 +163,11 @@ function EscolhaCobertura({
   setValorFree,
   outros,
   setOutros,
+  tipos,
+  titulo = "Quem cobriu?",
 }: {
+  tipos?: TipoCobertura[];
+  titulo?: string;
   data: string;
   postoId: string;
   faltouId: string;
@@ -223,16 +227,16 @@ function EscolhaCobertura({
   }, [reservas, busca]);
 
   const opcoes: { valor: TipoCobertura; rotulo: string }[] = [
-    { valor: "RESERVA", rotulo: "Reserva Técnica" },
-    { valor: "FT", rotulo: "FT" },
-    { valor: "FREELANCER", rotulo: "Freelancer" },
-    { valor: "OUTROS", rotulo: "Outros" },
-  ];
+    { valor: "RESERVA" as TipoCobertura, rotulo: "Reserva Técnica" },
+    { valor: "FT" as TipoCobertura, rotulo: "FT" },
+    { valor: "FREELANCER" as TipoCobertura, rotulo: "Freelancer" },
+    { valor: "OUTROS" as TipoCobertura, rotulo: "Outros" },
+  ].filter((o) => !tipos || tipos.includes(o.valor));
 
   return (
     <>
-      <Rotulo>Quem cobriu?</Rotulo>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <Rotulo>{titulo}</Rotulo>
+      <div className={`grid grid-cols-2 ${opcoes.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-4"} gap-2`}>
         {opcoes.map((o) => (
           <button
             key={o.valor}
@@ -469,6 +473,194 @@ function JanelaCobertura({
         {salvando ? "Salvando..." : status === "FALTA" ? "Registrar falta" : "Registrar cobertura"}
       </button>
     </Janela>
+  );
+}
+
+// ---------------- apoio extra por evento ----------------
+
+const AREAS_DA_ABA: Record<string, string[]> = { DIURNO: ["PORTARIA", "ZELADORIA"], LIMPEZA: ["LIMPEZA"], NOTURNO: ["PORTARIA"] };
+
+function JanelaApoio({ postoId, postoNome, data, aba, onFechar, onSalvo }: { postoId: string; postoNome: string; data: string; aba: Aba; onFechar: () => void; onSalvo: () => void }) {
+  const areas = AREAS_DA_ABA[aba] ?? [];
+  const [area, setArea] = useState(areas[0] ?? "");
+  const [motivo, setMotivo] = useState("");
+  const [tipo, setTipo] = useState<TipoCobertura | null>(null);
+  const [reservaId, setReservaId] = useState<string | null>(null);
+  const [ftId, setFtId] = useState<string | null>(null);
+  const [ftRotulo, setFtRotulo] = useState("");
+  const [outros, setOutros] = useState("");
+  const [nomeFree, setNomeFree] = useState("");
+  const [valorFree, setValorFree] = useState("");
+  const [obs, setObs] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    setErro(null);
+    if (!motivo.trim()) return setErro("Informe o evento/motivo do apoio.");
+    if (!tipo) return setErro("Escolha quem apoiou.");
+    if (tipo === "RESERVA" && !reservaId) return setErro("Escolha a pessoa da Reserva Técnica.");
+    if (tipo === "FT" && !ftId) return setErro("Escolha o colaborador que fez a FT.");
+    if (tipo === "FREELANCER" && !nomeFree.trim()) return setErro("Informe o nome do freelancer.");
+    const valor = tipo === "FREELANCER" && ehAdminMaster() ? lerValor(valorFree) : undefined;
+    if (valor === null) return setErro("Valor da diária inválido.");
+    setSalvando(true);
+    try {
+      await apiPostos("/apoios", {
+        method: "POST",
+        body: JSON.stringify({
+          postoId,
+          data,
+          aba,
+          area,
+          motivo: motivo.trim(),
+          coberturaTipo: tipo,
+          ...(tipo === "RESERVA" ? { coberturaColaboradorId: reservaId } : {}),
+          ...(tipo === "FT" ? { coberturaColaboradorId: ftId } : {}),
+          ...(tipo === "FREELANCER" ? { coberturaNome: nomeFree.trim(), ...(valor !== undefined ? { coberturaValor: valor } : {}) } : {}),
+          ...(obs.trim() ? { observacao: obs.trim() } : {}),
+        }),
+      });
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Janela titulo="Apoio extra (evento)" onFechar={onFechar}>
+      <p className="text-xs text-white/60 m-0">
+        {postoNome} · {dataBr(data)}. Reforço que não cobre ninguém — festa, mudança, evento.
+      </p>
+      {areas.length > 1 && (
+        <>
+          <Rotulo>Área</Rotulo>
+          <div className="grid grid-cols-2 gap-2">
+            {areas.map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setArea(a)}
+                className={`h-10 rounded-lg text-xs font-semibold border ${area === a ? "bg-white/15 border-white/50 text-white" : "border-white/15 text-white/70"}`}
+              >
+                {ROTULO_AREA[a] ?? a}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <Rotulo>Evento / motivo</Rotulo>
+      <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ex.: Festa das crianças" className={estiloCampo} maxLength={200} />
+      <EscolhaCobertura
+        tipos={["RESERVA", "FT", "FREELANCER"]}
+        titulo="Quem apoiou?"
+        data={data}
+        postoId={postoId}
+        faltouId=""
+        tipo={tipo}
+        setTipo={setTipo}
+        reservaId={reservaId}
+        setReservaId={setReservaId}
+        ftId={ftId}
+        ftRotulo={ftRotulo}
+        setFt={(id, rotulo) => {
+          setFtId(id);
+          setFtRotulo(rotulo);
+        }}
+        outros={outros}
+        setOutros={setOutros}
+        nomeFree={nomeFree}
+        setNomeFree={setNomeFree}
+        valorFree={valorFree}
+        setValorFree={setValorFree}
+      />
+      <Rotulo>Observação (opcional)</Rotulo>
+      <textarea value={obs} onChange={(e) => setObs(e.target.value)} maxLength={500} rows={2} className={`${estiloCampo} h-auto py-2`} />
+      {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
+      <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
+        {salvando ? "Salvando..." : "Registrar apoio"}
+      </button>
+    </Janela>
+  );
+}
+
+const ROTULO_APOIO: Record<string, string> = { RESERVA: "Reserva Técnica", FT: "FT", FREELANCER: "Freelancer" };
+
+// Apoios extras do posto no dia (na aba aberta).
+function SecaoApoios({ postoId, data, aba, podeMarcar, versao, onNovo }: { postoId: string; data: string; aba: Aba; podeMarcar: boolean; versao: number; onNovo: () => void }) {
+  const [lista, setLista] = useState<ApoioExtra[] | null>(null);
+  const [excluir, setExcluir] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const carregar = useCallback(() => {
+    apiPostos<ApoioExtra[]>(`/apoios?postoId=${postoId}&data=${data}&aba=${aba}`)
+      .then((l) => {
+        setLista(l);
+        setErro(null);
+      })
+      .catch((e) => setErro((e as Error).message));
+  }, [postoId, data, aba]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar, versao]);
+
+  const remover = async (id: string) => {
+    try {
+      await apiPostos(`/apoios/${id}`, { method: "DELETE" }, "Não foi possível excluir o apoio.");
+      setExcluir(null);
+      carregar();
+    } catch (e) {
+      setErro((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="mt-4">
+      <p className="text-[11px] uppercase tracking-wider text-white/45 mb-2" style={{ fontFamily: FONTES.mono }}>
+        Apoio extra (evento)
+      </p>
+      {lista?.map((a) => (
+        <div key={a.id} className="rounded-xl border px-3 py-2 mb-2" style={{ borderColor: "rgba(96,165,250,0.4)", background: "rgba(96,165,250,0.07)" }}>
+          <div className="flex items-start justify-between gap-2">
+            <span>
+              <span className="block text-sm text-white font-semibold">{a.motivo}</span>
+              <span className="block text-xs text-white/70">
+                {ROTULO_APOIO[a.coberturaTipo] ?? a.coberturaTipo} — {a.coberturaNome}
+                {a.coberturaValor != null ? ` (${moeda(a.coberturaValor)})` : ""}
+              </span>
+              <span className="block text-[11px] text-white/45">
+                {ROTULO_AREA[a.area] ?? a.area} · registrado por {a.registradoPorNome}
+                {a.observacao ? ` · ${a.observacao}` : ""}
+              </span>
+            </span>
+            {podeMarcar &&
+              (excluir === a.id ? (
+                <span className="flex gap-2 shrink-0">
+                  <button type="button" onClick={() => remover(a.id)} className="text-[11px] text-red-300 underline">
+                    Confirmar exclusão
+                  </button>
+                  <button type="button" onClick={() => setExcluir(null)} className="text-[11px] text-white/50 underline">
+                    Cancelar
+                  </button>
+                </span>
+              ) : (
+                <button type="button" onClick={() => setExcluir(a.id)} className="text-[11px] text-white/50 underline shrink-0">
+                  Excluir
+                </button>
+              ))}
+          </div>
+        </div>
+      ))}
+      {lista?.length === 0 && <p className="text-xs text-white/40 mt-0 mb-2">Nenhum apoio extra neste dia.</p>}
+      {erro && <p className="text-xs text-red-400">{erro}</p>}
+      {podeMarcar && (
+        <button type="button" onClick={onNovo} className="w-full h-11 rounded-xl border border-dashed text-sm" style={{ borderColor: "rgba(96,165,250,0.5)", color: "#93c5fd" }}>
+          ＋ Apoio extra (evento)
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -1323,7 +1515,8 @@ type Acao =
   | { tipo: "iniciante"; linha: LinhaColaborador }
   | { tipo: "remanejar"; linha: LinhaColaborador }
   | { tipo: "novoIniciante"; posto: { id: string; nome: string } | null }
-  | { tipo: "cadastro"; linha: LinhaColaborador | null };
+  | { tipo: "cadastro"; linha: LinhaColaborador | null }
+  | { tipo: "apoio"; posto: { id: string; nome: string } };
 
 function CartaoColaborador({
   linha,
@@ -1610,8 +1803,10 @@ export default function ConfirmacaoPosto() {
   };
 
   const fecharAcao = useCallback(() => setAcao(null), []);
+  const [versaoApoios, setVersaoApoios] = useState(0);
   const salvoAcao = async () => {
     setAcao(null);
+    setVersaoApoios((v) => v + 1);
     await recarregar();
   };
 
@@ -1676,6 +1871,16 @@ export default function ConfirmacaoPosto() {
                   >
                     ＋ Cadastrar iniciante neste posto
                   </button>
+                  {dia.posto.tipo !== "RESERVA" && (
+                    <SecaoApoios
+                      postoId={dia.posto.id}
+                      data={data}
+                      aba={aba}
+                      podeMarcar={dia.podeMarcar}
+                      versao={versaoApoios}
+                      onNovo={() => setAcao({ tipo: "apoio", posto: { id: dia.posto.id, nome: dia.posto.nome } })}
+                    />
+                  )}
                 </>
               )}
             </>
@@ -1832,6 +2037,9 @@ export default function ConfirmacaoPosto() {
       </div>
 
       {acao?.tipo === "cobertura" && <JanelaCobertura linha={acao.linha} postoId={postoId ?? ""} data={data} status={acao.status} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "apoio" && (
+        <JanelaApoio postoId={acao.posto.id} postoNome={acao.posto.nome} data={data} aba={aba} onFechar={fecharAcao} onSalvo={salvoAcao} />
+      )}
       {acao?.tipo === "recolhimento" && <JanelaRecolhimento linha={acao.linha} postoId={postoId ?? ""} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "iniciante" && <JanelaIniciante linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "remanejar" && (
