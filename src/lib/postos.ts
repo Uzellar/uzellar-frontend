@@ -6,7 +6,7 @@ import { mensagemErro } from "./mapaRonda";
 export const BASE_POSTOS = `${API_URL}/api/postos`;
 
 export type Aba = "DIURNO" | "LIMPEZA" | "NOTURNO";
-export type Status = "CONFIRMADO" | "FALTA" | "RECOLHIMENTO" | "FOLGA" | "VAGO";
+export type Status = "CONFIRMADO" | "FALTA" | "RECOLHIMENTO" | "FOLGA" | "VAGO" | "FERIAS";
 // SEM_COBERTURA só aparece em registros antigos (a tela não oferece mais).
 export type TipoCobertura = "RESERVA" | "FT" | "FREELANCER" | "OUTROS" | "SEM_COBERTURA";
 
@@ -28,6 +28,17 @@ export const ROTULO_STATUS: Record<string, string> = {
   RECOLHIMENTO: "Recolhimento",
   FOLGA: "Folga",
   VAGO: "Posto vago",
+  FERIAS: "Férias",
+};
+
+// Motivo da ida da Reserva Técnica a um posto (11/2026).
+export const ROTULO_MOTIVO_RESERVA: Record<string, string> = {
+  FALTA: "Falta",
+  FERIAS: "Férias",
+  VAGO: "Posto vago",
+  RECOLHIMENTO: "Recolhimento",
+  TREINAMENTO: "Treinamento",
+  APOIO: "Apoio extra",
 };
 
 export const ROTULO_COBERTURA: Record<string, string> = {
@@ -63,6 +74,7 @@ export function corDoStatus(status?: string | null) {
   if (status === "CONFIRMADO") return CORES_STATUS.verde;
   if (status === "FALTA" || status === "RECOLHIMENTO" || status === "VAGO") return CORES_STATUS.vermelho;
   if (status === "FOLGA") return CORES_STATUS.cinza;
+  if (status === "FERIAS") return CORES_STATUS.amarelo;
   return null;
 }
 
@@ -74,6 +86,10 @@ export interface RegistroDia {
   coberturaNome: string | null;
   coberturaValor: number | null;
   observacao: string | null;
+  // Reserva Técnica: posto para onde foi neste dia e por quê (11/2026).
+  cobrindoPostoNome?: string | null;
+  cobrindoMotivo?: string | null;
+  cobrindoNome?: string | null;
   registradoPorNome: string;
   atualizadoEm: string;
 }
