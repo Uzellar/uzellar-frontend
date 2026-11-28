@@ -31,6 +31,7 @@ import Veiculos from "./pages/Veiculos";
 import LocalizacaoEquipe from "./pages/LocalizacaoEquipe";
 import ConfirmacaoPosto from "./pages/ConfirmacaoPosto";
 import PostosHistorico from "./pages/PostosHistorico";
+import PostosFechamento from "./pages/PostosFechamento";
 import EquipamentosPosto from "./pages/EquipamentosPosto";
 import Anotacoes from "./pages/Anotacoes";
 import RastreioLocalizacao from "./components/RastreioLocalizacao";
@@ -193,6 +194,14 @@ export default function App() {
           element={
             <RotaAdminMaster>
               <MapasRondaAdmin />
+            </RotaAdminMaster>
+          }
+        />
+        <Route
+          path="/confirmacao-posto/fechamento"
+          element={
+            <RotaAdminMaster>
+              <PostosFechamento />
             </RotaAdminMaster>
           }
         />
