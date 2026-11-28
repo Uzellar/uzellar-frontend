@@ -6,9 +6,9 @@ import { mensagemErro } from "./mapaRonda";
 export const BASE_POSTOS = `${API_URL}/api/postos`;
 
 export type Aba = "DIURNO" | "LIMPEZA" | "NOTURNO";
-export type Status = "CONFIRMADO" | "FALTA" | "RECOLHIMENTO" | "FOLGA" | "VAGO" | "FERIAS";
+export type Status = "CONFIRMADO" | "FALTA" | "RECOLHIMENTO" | "FOLGA" | "VAGO" | "FERIAS" | "DEMITIDO";
 // SEM_COBERTURA só aparece em registros antigos (a tela não oferece mais).
-export type TipoCobertura = "RESERVA" | "FT" | "FREELANCER" | "OUTROS" | "SEM_COBERTURA";
+export type TipoCobertura = "RESERVA" | "FT" | "FREELANCER" | "OUTROS" | "SEM_COBERTURA" | "INICIANTE";
 
 export const ABAS: { aba: Aba; titulo: string; subtitulo: string }[] = [
   { aba: "DIURNO", titulo: "☀️ Diurno", subtitulo: "Portaria e Zeladoria e Manutenção" },
@@ -29,6 +29,7 @@ export const ROTULO_STATUS: Record<string, string> = {
   FOLGA: "Folga",
   VAGO: "Posto vago",
   FERIAS: "Férias",
+  DEMITIDO: "Demitido",
 };
 
 // Motivo da ida da Reserva Técnica a um posto (11/2026).
@@ -39,6 +40,7 @@ export const ROTULO_MOTIVO_RESERVA: Record<string, string> = {
   RECOLHIMENTO: "Recolhimento",
   TREINAMENTO: "Treinamento",
   APOIO: "Apoio extra",
+  DEMITIDO: "Demissão",
 };
 
 export const ROTULO_COBERTURA: Record<string, string> = {
@@ -47,6 +49,7 @@ export const ROTULO_COBERTURA: Record<string, string> = {
   FREELANCER: "Freelancer",
   OUTROS: "Outros",
   SEM_COBERTURA: "Sem cobertura",
+  INICIANTE: "Iniciante",
 };
 
 export const REGRAS: { valor: string; rotulo: string; referencia?: string }[] = [
@@ -72,7 +75,7 @@ export const CORES_STATUS = {
 
 export function corDoStatus(status?: string | null) {
   if (status === "CONFIRMADO") return CORES_STATUS.verde;
-  if (status === "FALTA" || status === "RECOLHIMENTO" || status === "VAGO") return CORES_STATUS.vermelho;
+  if (status === "FALTA" || status === "RECOLHIMENTO" || status === "DEMITIDO" || status === "VAGO") return CORES_STATUS.vermelho;
   if (status === "FOLGA") return CORES_STATUS.cinza;
   if (status === "FERIAS") return CORES_STATUS.amarelo;
   return null;
