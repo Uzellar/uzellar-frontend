@@ -23,6 +23,7 @@ import {
 } from "../lib/postos";
 import type { Aba, FtOpcao, LinhaColaborador, PostoResumo, ReservaOpcao, Status, TipoCobertura } from "../lib/postos";
 import { ativarPush, estadoPush } from "../lib/anotacoes";
+import { ehAdminMaster } from "../lib/api";
 import type { EstadoPush } from "../lib/anotacoes";
 
 // Confirmação de posto operacional (11/2026). O supervisor escolhe a aba
@@ -345,14 +346,18 @@ function EscolhaCobertura({
                 ))}
             </div>
           )}
-          <Rotulo>Valor da diária (opcional)</Rotulo>
-          <input
-            value={valorFree}
-            onChange={(e) => setValorFree(e.target.value.replace(/[^\d,.]/g, ""))}
-            placeholder="Ex.: 150,00"
-            inputMode="decimal"
-            className={estiloCampo}
-          />
+          {ehAdminMaster() && (
+            <>
+              <Rotulo>Valor da diária (opcional)</Rotulo>
+              <input
+                value={valorFree}
+                onChange={(e) => setValorFree(e.target.value.replace(/[^\d,.]/g, ""))}
+                placeholder="Ex.: 150,00"
+                inputMode="decimal"
+                className={estiloCampo}
+              />
+            </>
+          )}
         </div>
       )}
     </>
@@ -402,7 +407,7 @@ function JanelaCobertura({
     if (tipo === "FT" && !ftId) return setErro("Escolha o colaborador que fez a FT.");
     if (tipo === "OUTROS" && !outros.trim()) return setErro("Descreva quem cobriu.");
     if (tipo === "FREELANCER" && !nomeFree.trim()) return setErro("Informe o nome do freelancer.");
-    const valor = tipo === "FREELANCER" ? lerValor(valorFree) : undefined;
+    const valor = tipo === "FREELANCER" && ehAdminMaster() ? lerValor(valorFree) : undefined;
     if (valor === null) return setErro("Valor da diária inválido.");
     setSalvando(true);
     try {
@@ -603,7 +608,7 @@ function JanelaRecolhimento({
     if (tipo === "FT" && !ftId) return setErro("Escolha o colaborador que fez a FT.");
     if (tipo === "OUTROS" && !outros.trim()) return setErro("Descreva quem cobriu.");
     if (tipo === "FREELANCER" && !nomeFree.trim()) return setErro("Informe o nome do freelancer.");
-    const valor = tipo === "FREELANCER" ? lerValor(valorFree) : undefined;
+    const valor = tipo === "FREELANCER" && ehAdminMaster() ? lerValor(valorFree) : undefined;
     if (valor === null) return setErro("Valor da diária inválido.");
     setSalvando(true);
     try {

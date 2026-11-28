@@ -5,6 +5,7 @@ import { CORES, FONTES } from "../theme";
 import SeletorCondominio from "../components/SeletorCondominio";
 import { ABAS, ROTULO_AREA, ROTULO_COBERTURA, ROTULO_STATUS, apiPostos, corDoStatus, dataBr, dataHoraBr, hojeBrasilia, moeda, somarDias } from "../lib/postos";
 import type { PostoResumo } from "../lib/postos";
+import { ehAdminMaster } from "../lib/api";
 
 // Histórico da confirmação de posto: marcações do dia (confirmado, falta,
 // recolhimento, folga, posto vago) e as trocas no posto (recolhimento,
@@ -88,8 +89,10 @@ function Cartao({ rotulo, valor, cor }: { rotulo: string; valor: string | number
   );
 }
 
+// Valores (diária de freelancer) só para o Admin Master (11/2026).
 function baixarCsv(registros: RegistroHist[]) {
-  const cab = ["Data", "Posto", "Colaborador", "Matrícula", "Área", "Turno", "Situação", "Cobertura", "Quem cobriu", "Valor diária", "Observação", "Marcado por"];
+  const master = ehAdminMaster();
+  const cab = ["Data", "Posto", "Colaborador", "Matrícula", "Área", "Turno", "Situação", "Cobertura", "Quem cobriu", ...(master ? ["Valor diária"] : []), "Observação", "Marcado por"];
   const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const linhas = registros.map((r) =>
     [
@@ -102,7 +105,7 @@ function baixarCsv(registros: RegistroHist[]) {
       r.statusRotulo,
       r.coberturaTipo ? ROTULO_COBERTURA[r.coberturaTipo] : "",
       r.coberturaNome,
-      r.coberturaValor != null ? String(r.coberturaValor).replace(".", ",") : "",
+      ...(master ? [r.coberturaValor != null ? String(r.coberturaValor).replace(".", ",") : ""] : []),
       r.observacao,
       r.registradoPorNome,
     ]
@@ -253,7 +256,7 @@ export default function PostosHistorico() {
               <Cartao rotulo="Freelancers" valor={r.freelancer} />
               <Cartao rotulo="Outros" valor={r.outros ?? 0} />
               {r.semCobertura > 0 && <Cartao rotulo="Sem cobertura (antigos)" valor={r.semCobertura} cor="#fbbf24" />}
-              <Cartao rotulo="Gasto com freelancer" valor={moeda(r.valorFreelancer) || "R$ 0,00"} />
+              {ehAdminMaster() && <Cartao rotulo="Gasto com freelancer" valor={moeda(r.valorFreelancer) || "R$ 0,00"} />}
             </div>
           )}
 
