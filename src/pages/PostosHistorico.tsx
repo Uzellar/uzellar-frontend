@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import NavAdmin from "../components/NavAdmin";
 import { CORES, FONTES } from "../theme";
 import SeletorCondominio from "../components/SeletorCondominio";
-import { ABAS, ROTULO_AREA, ROTULO_COBERTURA, ROTULO_STATUS, apiPostos, corDoStatus, dataBr, dataHoraBr, hojeBrasilia, moeda, somarDias } from "../lib/postos";
+import { ABAS, ROTULO_AREA, ROTULO_COBERTURA, ROTULO_MOTIVO_RESERVA, ROTULO_STATUS, apiPostos, corDoStatus, dataBr, dataHoraBr, hojeBrasilia, moeda, somarDias } from "../lib/postos";
 import type { ApoioExtra, PostoResumo } from "../lib/postos";
 import { ehAdminMaster } from "../lib/api";
 
@@ -25,6 +25,9 @@ interface RegistroHist {
   coberturaNome: string | null;
   coberturaValor: number | null;
   observacao: string | null;
+  cobrindoPostoNome?: string | null;
+  cobrindoMotivo?: string | null;
+  cobrindoNome?: string | null;
   registradoPorNome: string;
 }
 
@@ -323,6 +326,12 @@ export default function PostosHistorico() {
                             {x.statusRotulo}
                           </span>
                         </div>
+                        {x.cobrindoPostoNome && (
+                          <p className="text-xs m-0 mt-1" style={{ color: "#93c5fd" }}>
+                            📍 Foi para {x.cobrindoPostoNome} — {ROTULO_MOTIVO_RESERVA[x.cobrindoMotivo ?? ""] ?? x.cobrindoMotivo}
+                            {x.cobrindoNome ? (x.cobrindoMotivo === "APOIO" || x.cobrindoMotivo === "TREINAMENTO" ? `: ${x.cobrindoNome}` : ` de ${x.cobrindoNome}`) : ""}
+                          </p>
+                        )}
                         {(x.coberturaTipo || x.observacao) && (
                           <p className="text-xs text-white/75 m-0 mt-1">
                             {x.coberturaTipo && (

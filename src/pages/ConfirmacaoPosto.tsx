@@ -10,6 +10,7 @@ import {
   REGRAS,
   ROTULO_AREA,
   ROTULO_COBERTURA,
+  ROTULO_MOTIVO_RESERVA,
   ROTULO_STATUS,
   apiPostos,
   corDoStatus,
@@ -387,7 +388,7 @@ function JanelaCobertura({
   linha: LinhaColaborador;
   postoId: string;
   data: string;
-  status: "FALTA" | "VAGO";
+  status: "FALTA" | "VAGO" | "FERIAS";
   onFechar: () => void;
   onSalvo: () => void;
 }) {
@@ -437,9 +438,9 @@ function JanelaCobertura({
   };
 
   return (
-    <Janela titulo={status === "FALTA" ? `Falta — ${linha.nome}` : `Posto vago — ${dataBr(data)}`} onFechar={onFechar}>
+    <Janela titulo={status === "FALTA" ? `Falta — ${linha.nome}` : status === "FERIAS" ? `Férias — ${linha.nome}` : `Posto vago — ${dataBr(data)}`} onFechar={onFechar}>
       <p className="text-xs text-white/60 m-0">
-        {status === "FALTA"
+        {status !== "VAGO"
           ? `${dataBr(data)} · ${ROTULO_AREA[linha.area] ?? linha.area}${linha.horario ? ` · ${linha.horario}` : ""}`
           : linha.substituiNome
             ? `No lugar de ${linha.substituiNome}.`
@@ -470,7 +471,193 @@ function JanelaCobertura({
       <textarea value={obs} onChange={(e) => setObs(e.target.value)} maxLength={500} rows={2} className={`${estiloCampo} h-auto py-2`} />
       {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
       <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
-        {salvando ? "Salvando..." : status === "FALTA" ? "Registrar falta" : "Registrar cobertura"}
+        {salvando ? "Salvando..." : status === "FALTA" ? "Registrar falta" : status === "FERIAS" ? "Registrar férias" : "Registrar cobertura"}
+      </button>
+    </Janela>
+  );
+}
+
+// ---------------- Reserva Técnica: para qual posto foi ----------------
+
+const MOTIVOS_RESERVA: { valor: string; rotulo: string }[] = [
+  { valor: "FALTA", rotulo: "Falta" },
+  { valor: "FERIAS", rotulo: "Férias" },
+  { valor: "TREINAMENTO", rotulo: "Treinamento" },
+  { valor: "APOIO", rotulo: "Apoio extra" },
+];
+
+// Ao confirmar alguém da Reserva Técnica: posto, motivo e (falta/férias) quem
+// ela cobriu. O servidor marca a falta/férias da pessoa no posto, coberta pela
+// Reserva, e deixa as duas marcações ligadas (11/2026).
+function JanelaReservaDestino({ linha, data, onFechar, onSalvo }: { linha: LinhaColaborador; data: string; onFechar: () => void; onSalvo: () => void }) {
+  const [postos, setPostos] = useState<{ id: string; nome: string }[] | null>(null);
+  const [busca, setBusca] = useState("");
+  const [destino, setDestino] = useState<{ id: string; nome: string } | null>(null);
+  const [motivo, setMotivo] = useState<string | null>(null);
+  const [pessoas, setPessoas] = useState<LinhaColaborador[] | null>(null);
+  const [substituido, setSubstituido] = useState<string | null>(null);
+  const [evento, setEvento] = useState("");
+  const [obs, setObs] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    Promise.all(ABAS.map((a) => apiPostos<{ postos: PostoResumo[] }>(`/lista?data=${data}&aba=${a.aba}`).catch(() => ({ postos: [] as PostoResumo[] }))))
+      .then((rs) => {
+        const mapa = new Map<string, string>();
+        rs.forEach((r) => r.postos.filter((p) => p.tipo !== "RESERVA").forEach((p) => mapa.set(p.id, p.nome)));
+        setPostos([...mapa.entries()].map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+      })
+      .catch(() => setPostos([]));
+  }, [data]);
+
+  // Quem está no posto de destino neste dia (todas as abas).
+  useEffect(() => {
+    setPessoas(null);
+    setSubstituido(null);
+    if (!destino) return;
+    Promise.all(
+      ABAS.map((a) =>
+        apiPostos<{ colaboradores: LinhaColaborador[] }>(`/dia?postoId=${destino.id}&data=${data}&aba=${a.aba}`).catch(() => ({ colaboradores: [] as LinhaColaborador[] })),
+      ),
+    ).then((rs) => setPessoas(rs.flatMap((r) => r.colaboradores)));
+  }, [destino, data]);
+
+  const filtrados = useMemo(() => {
+    const termo = normalizarBusca(busca);
+    return (postos ?? []).filter((p) => !termo || normalizarBusca(p.nome).includes(termo)).slice(0, 8);
+  }, [postos, busca]);
+
+  const precisaPessoa = motivo === "FALTA" || motivo === "FERIAS";
+
+  const salvar = async () => {
+    setErro(null);
+    if (!destino) return setErro("Escolha o posto para onde foi.");
+    if (!motivo) return setErro("Escolha o motivo.");
+    if (precisaPessoa && !substituido) return setErro("Escolha quem a Reserva cobriu.");
+    if (motivo === "APOIO" && !evento.trim()) return setErro("Informe o evento do apoio extra.");
+    setSalvando(true);
+    try {
+      await apiPostos("/registros/reserva-destino", {
+        method: "POST",
+        body: JSON.stringify({
+          colaboradorId: linha.id,
+          data,
+          postoDestinoId: destino.id,
+          motivo,
+          ...(precisaPessoa ? { substituidoId: substituido } : {}),
+          ...(motivo === "APOIO" ? { evento: evento.trim() } : {}),
+          ...(obs.trim() ? { observacao: obs.trim() } : {}),
+        }),
+      });
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+      setSalvando(false);
+    }
+  };
+
+  const ficouNaBase = async () => {
+    setErro(null);
+    setSalvando(true);
+    try {
+      await apiPostos("/registros", { method: "POST", body: JSON.stringify({ colaboradorId: linha.id, data, status: "CONFIRMADO" }) });
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Janela titulo={`Confirmar — ${linha.nome}`} onFechar={onFechar}>
+      <p className="text-xs text-white/60 m-0">Reserva Técnica · {dataBr(data)}. Para qual posto foi e por quê?</p>
+      <Rotulo>Posto</Rotulo>
+      {destino ? (
+        <div className="rounded-lg border px-3 py-2 flex items-center justify-between gap-2" style={{ borderColor: "rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.10)" }}>
+          <span className="text-sm text-white font-semibold">{destino.nome}</span>
+          <button type="button" onClick={() => setDestino(null)} className="text-[11px] text-white/60 underline shrink-0">
+            Trocar
+          </button>
+        </div>
+      ) : (
+        <>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar condomínio / posto" className={estiloCampo} />
+          <div className="mt-1 rounded-lg border border-white/10" style={{ maxHeight: 200, overflowY: "auto" }}>
+            {postos === null && <p className="text-xs text-white/50 p-3 m-0">Carregando...</p>}
+            {filtrados.map((p) => (
+              <button key={p.id} type="button" onClick={() => setDestino(p)} className="w-full text-left px-3 py-2 border-b border-white/5 text-sm text-white">
+                {p.nome}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <Rotulo>Motivo</Rotulo>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {MOTIVOS_RESERVA.map((m) => (
+          <button
+            key={m.valor}
+            type="button"
+            onClick={() => setMotivo(m.valor)}
+            className={`h-11 rounded-lg text-xs font-semibold border ${motivo === m.valor ? "bg-white/15 border-white/50 text-white" : "border-white/15 text-white/70"}`}
+          >
+            {m.rotulo}
+          </button>
+        ))}
+      </div>
+
+      {precisaPessoa && destino && (
+        <>
+          <Rotulo>{motivo === "FERIAS" ? "Quem está de férias?" : "Quem faltou?"}</Rotulo>
+          <div className="rounded-lg border border-white/10" style={{ maxHeight: 240, overflowY: "auto" }}>
+            {pessoas === null && <p className="text-xs text-white/50 p-3 m-0">Carregando...</p>}
+            {pessoas?.length === 0 && <p className="text-xs text-white/50 p-3 m-0">Ninguém neste posto neste dia.</p>}
+            {pessoas?.map((p) => {
+              const escolhido = p.id === substituido;
+              const ocupado = !!p.registro && !(p.registro.coberturaTipo === "RESERVA" && p.registro.coberturaColaboradorId === linha.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => setSubstituido(p.id)}
+                  className={`w-full text-left px-3 py-2 border-b border-white/5 ${escolhido ? "bg-emerald-500/15" : ""} ${ocupado ? "opacity-40" : ""}`}
+                >
+                  <span className="block text-sm text-white">
+                    {escolhido ? "✓ " : ""}
+                    {p.vaga ? `Vaga em aberto${p.substituiNome ? ` (no lugar de ${p.substituiNome})` : ""}` : p.nome}
+                  </span>
+                  <span className="block text-[11px] text-white/50">
+                    {ROTULO_AREA[p.area] ?? p.area} · {p.turno === "NOTURNO" ? "Noturno" : "Diurno"}
+                    {p.horario ? ` · ${p.horario}` : ""}
+                    {p.registro ? ` · já marcado: ${ROTULO_STATUS[p.registro.status] ?? p.registro.status}` : p.plantao === false ? " · de folga pela escala" : ""}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {motivo === "FALTA" && <p className="text-[11px] text-white/45 mt-1 mb-0">Vaga em aberto fica registrada como “Posto vago” coberto pela Reserva.</p>}
+        </>
+      )}
+
+      {motivo === "APOIO" && (
+        <>
+          <Rotulo>Evento</Rotulo>
+          <input value={evento} onChange={(e) => setEvento(e.target.value)} placeholder="Ex.: Festa das crianças" className={estiloCampo} maxLength={200} />
+        </>
+      )}
+      {motivo === "TREINAMENTO" && <p className="text-[11px] text-white/50 mt-2 mb-0">A Reserva foi aprender o posto — não substitui ninguém.</p>}
+
+      <Rotulo>Observação (opcional)</Rotulo>
+      <textarea value={obs} onChange={(e) => setObs(e.target.value)} maxLength={500} rows={2} className={`${estiloCampo} h-auto py-2`} />
+      {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
+      <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
+        {salvando ? "Salvando..." : "Confirmar"}
+      </button>
+      <button type="button" disabled={salvando} onClick={ficouNaBase} className="w-full h-10 rounded-full mt-2 text-white/70 text-sm border border-white/15">
+        Ficou na base (não foi a nenhum posto)
       </button>
     </Janela>
   );
@@ -1510,7 +1697,8 @@ function JanelaNovoIniciante({
 // ---------------- cartão do colaborador ----------------
 
 type Acao =
-  | { tipo: "cobertura"; linha: LinhaColaborador; status: "FALTA" | "VAGO" }
+  | { tipo: "cobertura"; linha: LinhaColaborador; status: "FALTA" | "VAGO" | "FERIAS" }
+  | { tipo: "reservaDestino"; linha: LinhaColaborador }
   | { tipo: "recolhimento"; linha: LinhaColaborador }
   | { tipo: "iniciante"; linha: LinhaColaborador }
   | { tipo: "remanejar"; linha: LinhaColaborador }
@@ -1543,7 +1731,7 @@ function CartaoColaborador({
 
   const botao = (s: Status, rotulo: string, verde: boolean) => {
     const ativo = reg?.status === s;
-    const c = ativo ? (verde ? CORES_STATUS.verde : s === "FOLGA" ? CORES_STATUS.cinza : CORES_STATUS.vermelho) : null;
+    const c = ativo ? (verde ? CORES_STATUS.verde : s === "FOLGA" ? CORES_STATUS.cinza : s === "FERIAS" ? CORES_STATUS.amarelo : CORES_STATUS.vermelho) : null;
     return (
       <button
         key={s}
@@ -1551,6 +1739,9 @@ function CartaoColaborador({
         disabled={ocupado}
         onClick={() => {
           if (s === "FALTA") return onAcao({ tipo: "cobertura", linha, status: "FALTA" });
+          if (s === "FERIAS") return onAcao({ tipo: "cobertura", linha, status: "FERIAS" });
+          // Reserva Técnica: confirmar pergunta para qual posto foi (11/2026).
+          if (s === "CONFIRMADO" && reserva && !ativo) return onAcao({ tipo: "reservaDestino", linha });
           if (s === "RECOLHIMENTO") return onAcao({ tipo: "recolhimento", linha });
           if (!ativo) onMarcar(linha, s);
         }}
@@ -1629,6 +1820,12 @@ function CartaoColaborador({
         </p>
       )}
 
+      {reg?.cobrindoPostoNome && (
+        <p className="m-0 mt-2 text-xs" style={{ color: "#93c5fd" }}>
+          📍 Foi para <b>{reg.cobrindoPostoNome}</b> — {ROTULO_MOTIVO_RESERVA[reg.cobrindoMotivo ?? ""] ?? reg.cobrindoMotivo}
+          {reg.cobrindoNome ? (reg.cobrindoMotivo === "APOIO" || reg.cobrindoMotivo === "TREINAMENTO" ? `: ${reg.cobrindoNome}` : ` de ${reg.cobrindoNome}`) : ""}
+        </p>
+      )}
       {reg && (reg.coberturaTipo || reg.observacao) && (
         <p className="m-0 mt-2 text-xs text-white/75">
           {reg.coberturaTipo && (
@@ -1643,9 +1840,10 @@ function CartaoColaborador({
       )}
 
       {botoesVisiveis && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3">
           {botao("CONFIRMADO", "✅ Confirmado", true)}
           {botao("FALTA", "❌ Falta", false)}
+          {botao("FERIAS", "🏖 Férias", false)}
           {botao("RECOLHIMENTO", "⛔ Recolhimento", false)}
           {botao("FOLGA", "💤 Folga", false)}
         </div>
@@ -1696,7 +1894,7 @@ function CartaoColaborador({
             por {reg.registradoPorNome} · {new Date(reg.atualizadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}
           </span>
           <button type="button" disabled={ocupado} onClick={() => onDesmarcar(linha)} className="text-[11px] text-white/50 underline">
-            {reg.status === "RECOLHIMENTO" ? "Desfazer recolhimento" : "Desmarcar"}
+            {reg.status === "RECOLHIMENTO" ? "Desfazer recolhimento" : reg.cobrindoPostoNome ? "Desmarcar (desfaz no posto também)" : "Desmarcar"}
           </button>
         </div>
       )}
@@ -2037,6 +2235,7 @@ export default function ConfirmacaoPosto() {
       </div>
 
       {acao?.tipo === "cobertura" && <JanelaCobertura linha={acao.linha} postoId={postoId ?? ""} data={data} status={acao.status} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "reservaDestino" && <JanelaReservaDestino linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "apoio" && (
         <JanelaApoio postoId={acao.posto.id} postoNome={acao.posto.nome} data={data} aba={aba} onFechar={fecharAcao} onSalvo={salvoAcao} />
       )}
