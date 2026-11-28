@@ -14,30 +14,35 @@ interface Grupo {
   itens: Item[];
 }
 
-// Menu do Administrador Master — separado em grupos por área.
+// Menu do Administrador Master — grupos por rotina de trabalho (11/2026).
 const GRUPOS_ADMIN: Grupo[] = [
   {
-    titulo: "Condôminos",
+    titulo: "Postos e equipe",
     itens: [
-      { rota: "/dashboard-condominios", rotulo: "Dashboard de condôminos" },
-      { rota: "/solicitacoes", rotulo: "Solicitações de condômino" },
-      { rota: "/relatorios", rotulo: "Relatórios" },
+      { rota: "/confirmacao-posto", rotulo: "Confirmação de posto" },
+      { rota: "/confirmacao-posto/historico", rotulo: "Histórico de postos" },
+      { rota: "/equipamentos-posto", rotulo: "Equipamentos do posto" },
+      { rota: "/localizacao-equipe", rotulo: "Localização da equipe" },
     ],
   },
   {
-    titulo: "Supervisão",
+    titulo: "Visitas e rondas",
     itens: [
       { rota: "/registrar-visita", rotulo: "Registrar visita" },
-      { rota: "/confirmacao-posto", rotulo: "Confirmação de posto" },
-      { rota: "/equipamentos-posto", rotulo: "Equipamentos do posto" },
-      { rota: "/anotacoes", rotulo: "Anotações do condomínio" },
-      { rota: "/rotas", rotulo: "Condomínios e rotas" },
-      { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
-      { rota: "/mapas-ronda", rotulo: "Controle de mapas de ronda" },
-      { rota: "/localizacao-equipe", rotulo: "Localização da equipe" },
       { rota: "/visitas-operacionais", rotulo: "Visita da supervisão" },
       { rota: "/dashboard-supervisao", rotulo: "Dashboard de supervisão" },
-      { rota: "/material-apoio", rotulo: "Material de apoio" },
+      { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
+      { rota: "/mapas-ronda", rotulo: "Controle de mapas de ronda" },
+      { rota: "/rotas", rotulo: "Condomínios e rotas" },
+    ],
+  },
+  {
+    titulo: "Condomínios",
+    itens: [
+      { rota: "/anotacoes", rotulo: "Anotações do condomínio" },
+      { rota: "/solicitacoes", rotulo: "Solicitações de condômino" },
+      { rota: "/dashboard-condominios", rotulo: "Dashboard de condôminos" },
+      { rota: "/relatorios", rotulo: "Relatórios de condôminos" },
     ],
   },
   {
@@ -55,42 +60,54 @@ const GRUPOS_ADMIN: Grupo[] = [
     ],
   },
   {
-    titulo: "Cadastros",
+    titulo: "Configurações",
     itens: [
       { rota: "/condominios", rotulo: "Cadastro de condomínios" },
       { rota: "/usuarios", rotulo: "Configuração de usuários" },
       { rota: "/veiculos", rotulo: "Veículos" },
+      { rota: "/material-apoio", rotulo: "Material de apoio" },
+      { rota: "/sugestoes", rotulo: "Sugestões recebidas" },
     ],
   },
-  { titulo: "Aplicativo", itens: [{ rota: "/sugestoes", rotulo: "Sugestões recebidas" }] },
 ];
 
-// Supervisor: solicitações + relatório de visitas (sem QR Code,
-// telefones, cadastros ou relatórios de condôminos — só Admin Master).
+// Supervisor: mesmos grupos por rotina, só com as telas liberadas para ele
+// (sem QR Code, telefones, cadastros ou relatórios de condôminos).
 const GRUPOS_SUPERVISOR: Grupo[] = [
   {
-    titulo: "Condôminos",
+    titulo: "Postos e equipe",
     itens: [
-      { rota: "/dashboard-condominios", rotulo: "Dashboard de condôminos" },
-      { rota: "/solicitacoes", rotulo: "Solicitações de condômino" },
+      { rota: "/confirmacao-posto", rotulo: "Confirmação de posto" },
+      { rota: "/confirmacao-posto/historico", rotulo: "Histórico de postos" },
+      { rota: "/equipamentos-posto", rotulo: "Equipamentos do posto" },
     ],
   },
   {
-    titulo: "Supervisão",
+    titulo: "Visitas e rondas",
     itens: [
       { rota: "/registrar-visita", rotulo: "Registrar visita" },
-      { rota: "/confirmacao-posto", rotulo: "Confirmação de posto" },
-      { rota: "/equipamentos-posto", rotulo: "Equipamentos do posto" },
-      { rota: "/anotacoes", rotulo: "Anotações do condomínio" },
-      { rota: "/rotas", rotulo: "Condomínios e rotas" },
-      { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
-      { rota: "/relatorio-visitas", rotulo: "Relatório de visitas" },
       { rota: "/dashboard-supervisao", rotulo: "Meu dashboard" },
-      { rota: "/material-apoio", rotulo: "Material de apoio" },
+      { rota: "/relatorio-visitas", rotulo: "Relatório de visitas" },
+      { rota: "/mapa-ronda", rotulo: "Mapa de ronda" },
+      { rota: "/rotas", rotulo: "Condomínios e rotas" },
     ],
   },
-  { titulo: "Uniformes", itens: [{ rota: "/estoque/requisicoes", rotulo: "Requisições de uniforme" }] },
-  { titulo: "Aplicativo", itens: [{ rota: "/sugestoes", rotulo: "Caixa de sugestões" }] },
+  {
+    titulo: "Condomínios",
+    itens: [
+      { rota: "/anotacoes", rotulo: "Anotações do condomínio" },
+      { rota: "/solicitacoes", rotulo: "Solicitações de condômino" },
+      { rota: "/dashboard-condominios", rotulo: "Dashboard de condôminos" },
+    ],
+  },
+  {
+    titulo: "Apoio",
+    itens: [
+      { rota: "/material-apoio", rotulo: "Material de apoio" },
+      { rota: "/estoque/requisicoes", rotulo: "Requisições de uniforme" },
+      { rota: "/sugestoes", rotulo: "Caixa de sugestões" },
+    ],
+  },
 ];
 
 // Responsável pelo estoque: só o módulo de Estoque de uniformes.
@@ -114,21 +131,18 @@ function gruposPorPerfil(): Grupo[] {
   return GRUPOS_BASICOS;
 }
 
-// Lembra quais grupos a pessoa deixou fechados (só neste navegador).
-const CHAVE_FECHADOS = "uzellar_menu_fechados";
-function lerFechados(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(CHAVE_FECHADOS) ?? "[]");
-  } catch {
-    return [];
+// Rota do menu que corresponde à tela atual: a mais específica
+// (ex.: "Histórico de postos" e não "Confirmação de posto").
+function rotaAtiva(grupos: Grupo[], pathname: string): string | null {
+  let melhor: string | null = null;
+  for (const g of grupos) {
+    for (const i of g.itens) {
+      if (pathname === i.rota || pathname.startsWith(i.rota + "/")) {
+        if (!melhor || i.rota.length > melhor.length) melhor = i.rota;
+      }
+    }
   }
-}
-function salvarFechados(lista: string[]) {
-  try {
-    localStorage.setItem(CHAVE_FECHADOS, JSON.stringify(lista));
-  } catch {
-    // sem armazenamento disponível — o menu só não lembra o estado
-  }
+  return melhor;
 }
 
 function LinkMenu({ item, ativo, recuo }: { item: Item; ativo: boolean; recuo?: boolean }) {
@@ -175,7 +189,9 @@ export default function NavAdmin() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const grupos = gruposPorPerfil();
-  const [fechados, setFechados] = useState<string[]>(lerFechados);
+  // Só o grupo da tela atual começa aberto; os outros abrem com um toque.
+  const [abertos, setAbertos] = useState<string[]>([]);
+  const ativa = rotaAtiva(grupos, pathname);
   const estreita = useTelaEstreita();
   const [menuAberto, setMenuAberto] = useState(false);
 
@@ -183,9 +199,7 @@ export default function NavAdmin() {
   useEffect(() => setMenuAberto(false), [pathname]);
 
   const alternarGrupo = (titulo: string) => {
-    const nova = fechados.includes(titulo) ? fechados.filter((t) => t !== titulo) : [...fechados, titulo];
-    setFechados(nova);
-    salvarFechados(nova);
+    setAbertos((atual) => (atual.includes(titulo) ? atual.filter((t) => t !== titulo) : [...atual, titulo]));
   };
 
   const sair = () => {
@@ -207,10 +221,10 @@ export default function NavAdmin() {
       <nav style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
 
         {grupos.map((grupo) => {
-          // O grupo da tela atual fica sempre aberto, mesmo que a pessoa
-          // tenha fechado antes — pra ela não "perder" onde está.
-          const temAtivo = grupo.itens.some((i) => i.rota === pathname);
-          const aberto = temAtivo || !fechados.includes(grupo.titulo);
+          // O grupo da tela atual fica sempre aberto — pra pessoa não
+          // "perder" onde está. Os outros ficam recolhidos.
+          const temAtivo = grupo.itens.some((i) => i.rota === ativa);
+          const aberto = temAtivo || abertos.includes(grupo.titulo);
           return (
             <div key={grupo.titulo} style={{ marginTop: 10 }}>
               <button
@@ -239,7 +253,7 @@ export default function NavAdmin() {
               {aberto && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
                   {grupo.itens.map((item) => (
-                    <LinkMenu key={item.rota} item={item} ativo={pathname === item.rota || pathname.startsWith(item.rota + "/")} recuo />
+                    <LinkMenu key={item.rota} item={item} ativo={item.rota === ativa} recuo />
                   ))}
                 </div>
               )}
