@@ -21,6 +21,7 @@ const GRUPOS_ADMIN: Grupo[] = [
     itens: [
       { rota: "/confirmacao-posto", rotulo: "Confirmação de posto" },
       { rota: "/confirmacao-posto/historico", rotulo: "Histórico de postos" },
+      { rota: "/confirmacao-posto/fechamento", rotulo: "Fechamento de FT" },
       { rota: "/equipamentos-posto", rotulo: "Equipamentos do posto" },
       { rota: "/localizacao-equipe", rotulo: "Localização da equipe" },
     ],
