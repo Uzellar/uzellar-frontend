@@ -73,9 +73,10 @@ const ROTULO_EVENTO: Record<string, string> = {
   ENTRADA: "Inclusão",
   SAIDA: "Retirada",
   RECOLHIMENTO: "Recolhimento",
+  DEMISSAO: "Demissão",
   INICIANTE: "Iniciante",
   EDICAO: "Cadastro alterado",
-  DESFEITO: "Recolhimento desfeito",
+  DESFEITO: "Troca desfeita",
   TRANSFERENCIA: "Remanejamento (saída)",
 };
 
@@ -261,6 +262,7 @@ export default function PostosHistorico() {
               <Cartao rotulo="Confirmados" valor={r.porStatus.CONFIRMADO ?? 0} cor="#34d399" />
               <Cartao rotulo="Faltas" valor={r.porStatus.FALTA ?? 0} cor="#ff6b6b" />
               <Cartao rotulo="Recolhimentos" valor={r.porStatus.RECOLHIMENTO ?? 0} cor="#ff6b6b" />
+              <Cartao rotulo="Demitidos" valor={r.porStatus.DEMITIDO ?? 0} cor="#ff6b6b" />
               <Cartao rotulo="Postos vagos" valor={r.porStatus.VAGO ?? 0} cor="#ff6b6b" />
               <Cartao rotulo="Coberturas da Reserva" valor={r.reserva} />
               <Cartao rotulo="FT (folga trabalhada)" valor={r.ft ?? 0} />

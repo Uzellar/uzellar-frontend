@@ -232,7 +232,8 @@ function EscolhaCobertura({
     { valor: "FT" as TipoCobertura, rotulo: "FT" },
     { valor: "FREELANCER" as TipoCobertura, rotulo: "Freelancer" },
     { valor: "OUTROS" as TipoCobertura, rotulo: "Outros" },
-  ].filter((o) => !tipos || tipos.includes(o.valor));
+    { valor: "INICIANTE" as TipoCobertura, rotulo: "Iniciante" },
+  ].filter((o) => (tipos ? tipos.includes(o.valor) : o.valor !== "INICIANTE"));
 
   return (
     <>
@@ -327,6 +328,10 @@ function EscolhaCobertura({
             })}
           </div>
         </div>
+      )}
+
+      {tipo === "INICIANTE" && (
+        <p className="text-[11px] text-white/50 mt-2 mb-0">Informe abaixo o iniciante: ele assume o posto de vez a partir da data de início.</p>
       )}
 
       {tipo === "OUTROS" && (
@@ -951,16 +956,19 @@ function CampoNovaPessoa({
 
 // ---------------- recolhimento ----------------
 
+// Também usada para a demissão (11/2026): mesma troca, com "Iniciante" entre as coberturas.
 function JanelaRecolhimento({
   linha,
   postoId,
   data,
+  demissao = false,
   onFechar,
   onSalvo,
 }: {
   linha: LinhaColaborador;
   postoId: string;
   data: string;
+  demissao?: boolean;
   onFechar: () => void;
   onSalvo: () => void;
 }) {
@@ -982,7 +990,8 @@ function JanelaRecolhimento({
 
   const salvar = async () => {
     setErro(null);
-    if (!inicio || inicio <= data) return setErro("A nova pessoa começa depois do dia do recolhimento.");
+    if (!inicio || inicio <= data) return setErro(`A nova pessoa começa depois do dia ${demissao ? "da demissão" : "do recolhimento"}.`);
+    if (tipo === "INICIANTE" && !nome.trim()) return setErro("Informe o nome do iniciante que assumiu o posto.");
     if (tipo === "RESERVA" && !reservaId) return setErro("Escolha a pessoa da Reserva Técnica.");
     if (tipo === "FT" && !ftId) return setErro("Escolha o colaborador que fez a FT.");
     if (tipo === "OUTROS" && !outros.trim()) return setErro("Descreva quem cobriu.");
@@ -996,7 +1005,7 @@ function JanelaRecolhimento({
         body: JSON.stringify({
           colaboradorId: linha.id,
           data,
-          status: "RECOLHIMENTO",
+          status: demissao ? "DEMITIDO" : "RECOLHIMENTO",
           ...(tipo ? { coberturaTipo: tipo } : {}),
           ...(tipo === "RESERVA" ? { coberturaColaboradorId: reservaId } : {}),
           ...(tipo === "FT" ? { coberturaColaboradorId: ftId } : {}),
@@ -1017,12 +1026,17 @@ function JanelaRecolhimento({
   };
 
   return (
-    <Janela titulo={`Recolhimento — ${linha.nome}`} onFechar={onFechar}>
+    <Janela titulo={`${demissao ? "Demitido" : "Recolhimento"} — ${linha.nome}`} onFechar={onFechar}>
       <p className="text-xs text-white/60 m-0">
-        {linha.nome} sai do posto. O último dia dele(a) é {dataBr(data)}. A nova pessoa assume com a mesma escala e o mesmo horário.
+        {linha.nome} {demissao ? "foi demitido(a) e sai" : "sai"} do posto. O último dia dele(a) é {dataBr(data)}. A nova pessoa assume com a mesma escala e o mesmo horário.
       </p>
-      <p className="text-[11px] text-white/50 mt-2 mb-0">Se alguém cobriu o posto em {dataBr(data)}, registre abaixo (opcional).</p>
+      <p className="text-[11px] text-white/50 mt-2 mb-0">
+        {demissao
+          ? `Quem cobriu o posto em ${dataBr(data)}? Reserva Técnica, FT, Freelancer ou o Iniciante que ficou com a vaga.`
+          : `Se alguém cobriu o posto em ${dataBr(data)}, registre abaixo (opcional).`}
+      </p>
       <EscolhaCobertura
+        tipos={demissao ? ["RESERVA", "FT", "FREELANCER", "INICIANTE"] : undefined}
         data={data}
         postoId={postoId}
         faltouId={linha.id}
@@ -1048,7 +1062,7 @@ function JanelaRecolhimento({
           Ninguém cobriu (limpar)
         </button>
       )}
-      <Rotulo>Nova pessoa no posto</Rotulo>
+      <Rotulo>{tipo === "INICIANTE" ? "Iniciante que assumiu o posto" : "Nova pessoa no posto"}</Rotulo>
       <CampoNovaPessoa
         data={data}
         inicio={inicio}
@@ -1056,7 +1070,7 @@ function JanelaRecolhimento({
         setNome={setNome}
         reserva={reserva}
         setReserva={setReserva}
-        placeholder="Digite o nome (deixe vazio se ainda não souber)"
+        placeholder={tipo === "INICIANTE" ? "Digite o nome do iniciante" : "Digite o nome (deixe vazio se ainda não souber)"}
       />
       {nome.trim() && !reserva && (
         <>
@@ -1071,7 +1085,7 @@ function JanelaRecolhimento({
       <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} rows={2} className={`${estiloCampo} h-auto py-2`} />
       {erro && <p className="text-sm text-red-400 mt-3 mb-0">{erro}</p>}
       <button type="button" disabled={salvando} onClick={salvar} className="w-full h-12 rounded-full mt-4 text-white font-bold" style={{ background: CORES.vermelho, opacity: salvando ? 0.6 : 1 }}>
-        {salvando ? "Salvando..." : "Confirmar recolhimento"}
+        {salvando ? "Salvando..." : demissao ? "Confirmar demissão" : "Confirmar recolhimento"}
       </button>
     </Janela>
   );
@@ -1266,7 +1280,7 @@ function JanelaCadastro({
               Retirar do posto sem substituto
             </button>
           )}
-          {linha && !ehReserva && (
+          {linha && (!ehReserva || (linha.remanejadoDe && !linha.remanejadoDe.reserva)) && (
             <button
               type="button"
               disabled={salvando}
@@ -1333,9 +1347,9 @@ function JanelaRemanejar({
   onSalvo: () => void;
 }) {
   const daReserva = postoAtual?.reserva ?? true;
-  const [postos, setPostos] = useState<{ id: string; nome: string }[] | null>(null);
+  const [postos, setPostos] = useState<{ id: string; nome: string; reserva?: boolean }[] | null>(null);
   const [busca, setBusca] = useState("");
-  const [destino, setDestino] = useState<{ id: string; nome: string } | null>(null);
+  const [destino, setDestino] = useState<{ id: string; nome: string; reserva?: boolean } | null>(null);
   const [vagas, setVagas] = useState<{ id: string; rotulo: string }[]>([]);
   const [vagaId, setVagaId] = useState<string>("");
   const [inicio, setInicio] = useState(data);
@@ -1349,14 +1363,25 @@ function JanelaRemanejar({
   const pedeReferencia = REGRAS.find((r) => r.valor === regra)?.referencia;
 
   useEffect(() => {
-    Promise.all(ABAS.map((a) => apiPostos<{ postos: PostoResumo[] }>(`/lista?data=${data}&aba=${a.aba}`).catch(() => ({ postos: [] as PostoResumo[] }))))
-      .then((rs) => {
+    // Quem é de um posto comum também pode ir para a Reserva Técnica (11/2026).
+    const reservas = daReserva
+      ? Promise.resolve([] as { id: string; nome: string }[])
+      : apiPostos<{ id: string; nome: string }[]>("/reservas-postos").catch(() => [] as { id: string; nome: string }[]);
+    Promise.all([
+      reservas,
+      ...ABAS.map((a) => apiPostos<{ postos: PostoResumo[] }>(`/lista?data=${data}&aba=${a.aba}`).catch(() => ({ postos: [] as PostoResumo[] }))),
+    ])
+      .then(([rsv, ...rs]) => {
         const mapa = new Map<string, string>();
-        rs.forEach((r) => r.postos.filter((p) => p.tipo !== "RESERVA" && p.id !== postoAtual?.id).forEach((p) => mapa.set(p.id, p.nome)));
-        setPostos([...mapa.entries()].map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+        (rs as { postos: PostoResumo[] }[]).forEach((r) =>
+          r.postos.filter((p) => p.tipo !== "RESERVA" && p.id !== postoAtual?.id).forEach((p) => mapa.set(p.id, p.nome)),
+        );
+        const comuns = [...mapa.entries()].map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+        const daReservaLista = (rsv as { id: string; nome: string }[]).filter((p) => p.id !== postoAtual?.id).map((p) => ({ ...p, reserva: true }));
+        setPostos([...daReservaLista, ...comuns]);
       })
       .catch(() => setPostos([]));
-  }, [data, postoAtual?.id]);
+  }, [data, postoAtual?.id, daReserva]);
 
   useEffect(() => {
     setVagas([]);
@@ -1379,7 +1404,9 @@ function JanelaRemanejar({
 
   const filtrados = useMemo(() => {
     const termo = normalizarBusca(busca);
-    return (postos ?? []).filter((p) => !termo || normalizarBusca(p.nome).includes(termo)).slice(0, 8);
+    return (postos ?? [])
+      .filter((p) => !termo || normalizarBusca(p.nome).includes(termo) || (p.reserva && normalizarBusca("Reserva Técnica").includes(termo)))
+      .slice(0, 8);
   }, [postos, busca]);
 
   const salvar = async () => {
@@ -1413,7 +1440,10 @@ function JanelaRemanejar({
       <Rotulo>Remanejado para o posto</Rotulo>
       {destino ? (
         <div className="rounded-lg border px-3 py-2 flex items-center justify-between gap-2" style={{ borderColor: "rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.10)" }}>
-          <span className="text-sm text-white font-semibold">{destino.nome}</span>
+          <span className="text-sm text-white font-semibold">
+            {destino.nome}
+            {destino.reserva ? <span className="text-[10px] ml-2" style={{ color: "#93c5fd" }}>Reserva Técnica</span> : null}
+          </span>
           <button type="button" onClick={() => setDestino(null)} className="text-[11px] text-white/60 underline shrink-0">
             Trocar
           </button>
@@ -1425,14 +1455,16 @@ function JanelaRemanejar({
             {postos === null && <p className="text-xs text-white/50 p-3 m-0">Carregando...</p>}
             {filtrados.map((p) => (
               <button key={p.id} type="button" onClick={() => setDestino(p)} className="w-full text-left px-3 py-2 border-b border-white/5 text-sm text-white">
+                {p.reserva ? "🔁 " : ""}
                 {p.nome}
+                {p.reserva ? <span className="text-[10px] ml-2" style={{ color: "#93c5fd" }}>Reserva Técnica</span> : null}
               </button>
             ))}
           </div>
         </>
       )}
 
-      {destino && vagas.length > 0 && (
+      {destino && !destino.reserva && vagas.length > 0 && (
         <>
           <Rotulo>Como entra no posto</Rotulo>
           <select value={vagaId} onChange={(e) => setVagaId(e.target.value)} className={estiloCampo}>
@@ -1700,6 +1732,7 @@ type Acao =
   | { tipo: "cobertura"; linha: LinhaColaborador; status: "FALTA" | "VAGO" | "FERIAS" }
   | { tipo: "reservaDestino"; linha: LinhaColaborador }
   | { tipo: "recolhimento"; linha: LinhaColaborador }
+  | { tipo: "demissao"; linha: LinhaColaborador }
   | { tipo: "iniciante"; linha: LinhaColaborador }
   | { tipo: "remanejar"; linha: LinhaColaborador }
   | { tipo: "novoIniciante"; posto: { id: string; nome: string } | null }
@@ -1743,6 +1776,7 @@ function CartaoColaborador({
           // Reserva Técnica: confirmar pergunta para qual posto foi (11/2026).
           if (s === "CONFIRMADO" && reserva && !ativo) return onAcao({ tipo: "reservaDestino", linha });
           if (s === "RECOLHIMENTO") return onAcao({ tipo: "recolhimento", linha });
+          if (s === "DEMITIDO") return onAcao({ tipo: "demissao", linha });
           if (!ativo) onMarcar(linha, s);
         }}
         className="h-11 rounded-lg text-xs font-bold"
@@ -1840,11 +1874,12 @@ function CartaoColaborador({
       )}
 
       {botoesVisiveis && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
           {botao("CONFIRMADO", "✅ Confirmado", true)}
           {botao("FALTA", "❌ Falta", false)}
           {botao("FERIAS", "🏖 Férias", false)}
           {botao("RECOLHIMENTO", "⛔ Recolhimento", false)}
+          {botao("DEMITIDO", "🚫 Demitido", false)}
           {botao("FOLGA", "💤 Folga", false)}
         </div>
       )}
@@ -1894,7 +1929,7 @@ function CartaoColaborador({
             por {reg.registradoPorNome} · {new Date(reg.atualizadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}
           </span>
           <button type="button" disabled={ocupado} onClick={() => onDesmarcar(linha)} className="text-[11px] text-white/50 underline">
-            {reg.status === "RECOLHIMENTO" ? "Desfazer recolhimento" : reg.cobrindoPostoNome ? "Desmarcar (desfaz no posto também)" : "Desmarcar"}
+            {reg.status === "RECOLHIMENTO" ? "Desfazer recolhimento" : reg.status === "DEMITIDO" ? "Desfazer demissão" : reg.cobrindoPostoNome ? "Desmarcar (desfaz no posto também)" : "Desmarcar"}
           </button>
         </div>
       )}
@@ -1988,7 +2023,9 @@ export default function ConfirmacaoPosto() {
   const desmarcar = async (linha: LinhaColaborador) => {
     if (!linha.registro) return;
     const recolhimento = linha.registro.status === "RECOLHIMENTO";
+    const demissao = linha.registro.status === "DEMITIDO";
     if (recolhimento && !confirm(`Desfazer o recolhimento de ${linha.nome}? A pessoa volta para o posto e o substituto sai.`)) return;
+    if (demissao && !confirm(`Desfazer a demissão de ${linha.nome}? A pessoa volta para o posto e o substituto sai.`)) return;
     setOcupado(true);
     try {
       await apiPostos(`/registros/${linha.registro.id}`, { method: "DELETE" });
@@ -2240,6 +2277,7 @@ export default function ConfirmacaoPosto() {
         <JanelaApoio postoId={acao.posto.id} postoNome={acao.posto.nome} data={data} aba={aba} onFechar={fecharAcao} onSalvo={salvoAcao} />
       )}
       {acao?.tipo === "recolhimento" && <JanelaRecolhimento linha={acao.linha} postoId={postoId ?? ""} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
+      {acao?.tipo === "demissao" && <JanelaRecolhimento demissao linha={acao.linha} postoId={postoId ?? ""} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "iniciante" && <JanelaIniciante linha={acao.linha} data={data} onFechar={fecharAcao} onSalvo={salvoAcao} />}
       {acao?.tipo === "remanejar" && (
         <JanelaRemanejar
